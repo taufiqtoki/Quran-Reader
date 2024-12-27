@@ -1,0 +1,13 @@
+#pdf-container {
+    width: 80%;
+    margin: 20px auto;
+    border: 1px solid #ccc;
+    overflow: auto;
+}
+
+#bookmarks {
+    width: 80%;
+    margin: 20px auto;
+    border: 1px solid #ccc;
+    padding: 10px;
+}
