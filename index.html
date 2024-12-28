@@ -11,6 +11,15 @@
       max-width: 100%;
       height: auto;
     }
+    input[type="number"] {
+      cursor: text;
+    }
+    input[type="number"]:focus {
+      outline: none;
+    }
+    body, html {
+      user-select: none;
+    }
   </style>
 </head>
 <body class="bg-gray-100 h-screen" onkeydown="handleKeyDown(event)" ontouchstart="handleTouchStart(event)" ontouchmove="handleTouchMove(event)">
@@ -28,7 +37,7 @@
 
     <!-- Middle: PDF Viewer -->
     <main class="flex-1 flex justify-center items-center bg-white shadow-md relative" ondblclick="toggleFullScreen()">
-      <canvas id="pdf-render" class="border"></canvas>
+      <canvas id="pdf-render" class="border" tabindex="0"></canvas>
     </main>
 
     <!-- Right: Controls -->
@@ -41,7 +50,7 @@
         <button id="prev-page" class="bg-blue-500 text-white px-4 py-2 rounded w-full">Previous Page</button>
         <button id="next-page" class="bg-blue-500 text-white px-4 py-2 rounded w-full">Next Page</button>
         <div class="flex items-center space-x-2">
-          <input type="number" id="page-input" placeholder="Page #" class="border px-2 py-1 rounded flex-1">
+          <input type="number" id="page-input" placeholder="Page #" class="border px-2 py-1 rounded flex-1" onclick="setFocus('input')" onblur="clearFocus('input')">
           <button id="go-to-page" class="bg-green-500 text-white px-4 py-2 rounded">Go</button>
         </div>
       </div>
@@ -78,6 +87,7 @@
     let bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
     let xDown = null;
     let yDown = null;
+    let focusedElement = null;
 
     const renderPage = (num) => {
       pageIsRendering = true;
@@ -227,33 +237,44 @@
       addBookmarkButton.style.color = isBookmarked ? 'blue' : 'black';
     };
 
+    const setFocus = (element) => {
+      focusedElement = element;
+    };
+
+    const clearFocus = (element) => {
+      if (focusedElement === element) {
+        focusedElement = null;
+      }
+    };
+
     const handleKeyDown = (event) => {
-      switch (event.key) {
-        case 'ArrowLeft':
-          showPrevPage();
-          break;
-        case 'ArrowRight':
-          showNextPage();
-          break;
-        case 'ArrowUp':
-          showPrevPage();
-          break;
-        case 'ArrowDown':
-          showNextPage();
-          break;
-        case 'Enter':
-          if (document.activeElement.id === 'page-input') {
-            jumpToPage();
-          }
-          break;
-        case 'f':
-          toggleFullScreen();
-          break;
-        case 'b':
-          addBookmarkModal();
-          break;
-        default:
-          break;
+      if (focusedElement !== 'input') {
+        switch (event.key) {
+          case 'ArrowLeft':
+            showPrevPage();
+            break;
+          case 'ArrowRight':
+            showNextPage();
+            break;
+          case 'ArrowUp':
+            showPrevPage();
+            break;
+          case 'ArrowDown':
+            showNextPage();
+            break;
+          case 'Enter':
+          case ' ':
+            showNextPage();
+            break;
+          case 'f':
+            toggleFullScreen();
+            break;
+          case 'b':
+            addBookmarkModal();
+            break;
+          default:
+            break;
+        }
       }
     };
 
@@ -286,6 +307,22 @@
       yDown = null;
     };
 
+    const handleWheel = (event) => {
+      if (event.deltaY > 0) {
+        showNextPage();
+      } else {
+        showPrevPage();
+      }
+    };
+
+    const handleMouseUpDown = (event) => {
+      if (event.button === 4) { // Mouse button 4 (up)
+        showPrevPage();
+      } else if (event.button === 5) { // Mouse button 5 (down)
+        showNextPage();
+      }
+    };
+
     pdfjsLib.getDocument(url).promise.then((pdfDoc_) => {
       pdfDoc = pdfDoc_;
       renderPage(pageNum);
@@ -307,6 +344,9 @@
       }
     });
 
+    canvas.addEventListener('wheel', handleWheel);
+    canvas.addEventListener('mousedown', handleMouseUpDown);
+
     const toggleFullScreen = () => {
       if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen();
@@ -322,4 +362,3 @@
   </script>
 </body>
 </html>
-  
