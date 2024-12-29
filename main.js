@@ -1,4 +1,4 @@
-import { openDB, setPdfDoc, renderPage, queueRenderPage, showPrevPage, showNextPage, jumpToPage, zoomIn, zoomOut, resetZoom, updateBookmarkList, addBookmarkModal, saveBookmark, closeModal, jumpToBookmark, editBookmark, deleteBookmark, toggleFullScreen } from './pdfManager.js';
+import { openDB, setPdfDoc, renderPage, queueRenderPage, showPrevPage, showNextPage, jumpToPage, zoomIn, zoomOut, resetZoom, updateBookmarkList, addBookmarkModal, saveBookmark, closeModal, jumpToBookmark, editBookmark, deleteBookmark, confirmDeleteBookmark, toggleFullScreen } from './pdfManager.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
@@ -122,3 +122,4 @@ window.addBookmarkModal = addBookmarkModal;
 window.saveBookmark = saveBookmark;
 window.closeModal = closeModal;
 window.updateBookmarkList = updateBookmarkList;
+window.confirmDeleteBookmark = confirmDeleteBookmark;

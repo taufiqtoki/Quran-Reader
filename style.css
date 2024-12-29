@@ -10,3 +10,19 @@ body, html { user-select: none; height: 100%; margin: 0; }
 #loading { display: flex; justify-content: center; align-items: center; }
 #loading .spinner { border: 8px solid rgba(0, 0, 0, 0.1); border-left-color: #3498db; border-radius: 50%; width: 80px; height: 80px; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Toast styles */
+.toast-container {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+}
+.toast {
+  opacity: 0;
+  transition: opacity 0.5s ease-in-out;
+}
+.toast.show {
+  opacity: 1;
+}

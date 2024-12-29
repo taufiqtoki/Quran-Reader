@@ -46,8 +46,8 @@ const updateBookmarkList = () => {
             li.className = 'flex justify-between items-center bg-gray-200 px-4 py-2 rounded';
             li.innerHTML = `<span class="cursor-pointer" onclick="jumpToBookmark(${page})">${bookmark.name} (Page ${page})</span>
                 <div class="flex space-x-2">
-                    <button class="text-blue-500" onclick="editBookmark(${page})">✎</button>
-                    <button class="text-red-500" onclick="deleteBookmark(${page})">✖</button>
+                    <button class="text-blue-500" onclick="editBookmark(${page})"><i class="fas fa-edit"></i></button>
+                    <button class="text-red-500" onclick="confirmDeleteBookmark(${page})"><i class="fas fa-trash-alt"></i></button>
                 </div>`;
             bookmarkList.appendChild(li);
         }
@@ -78,6 +78,7 @@ const saveBookmark = () => {
     updateBookmarkList();
     closeModal();
     updateStarColor();
+    showToast('Bookmark saved');
 };
 
 const editBookmark = (page) => {
@@ -94,6 +95,7 @@ const editBookmark = (page) => {
         };
         updateBookmarkList();
         closeModal();
+        showToast('Bookmark edited');
     };
     document.getElementById('bookmark-modal').onkeydown = (event) => {
         if (event.key === 'Enter') {
@@ -104,9 +106,20 @@ const editBookmark = (page) => {
     };
 };
 
+const confirmDeleteBookmark = (page) => {
+    const modal = document.getElementById('confirm-delete-modal');
+    modal.classList.remove('hidden');
+    modal.removeAttribute('inert');
+    document.getElementById('confirm-delete').onclick = () => {
+        deleteBookmark(page);
+        closeConfirmDeleteModal();
+    };
+};
+
 const deleteBookmark = (page) => {
     delete bookmarks[page];
     updateBookmarkList();
+    showToast('Bookmark deleted');
 };
 
 const closeModal = () => {
@@ -115,6 +128,12 @@ const closeModal = () => {
     modal.setAttribute('inert', '');
     document.removeEventListener('keydown', handleModalKeyDown);
     document.removeEventListener('click', handleModalClick, true);
+};
+
+const closeConfirmDeleteModal = () => {
+    const modal = document.getElementById('confirm-delete-modal');
+    modal.classList.add('hidden');
+    modal.setAttribute('inert', '');
 };
 
 const handleModalKeyDown = (event) => {
@@ -246,4 +265,22 @@ const toggleFullScreen = () => {
     setTimeout(() => renderPage(pageNum), 100); // Re-render the page to adjust the canvas size after entering/exiting full-screen mode
 };
 
-export { openDB, setPdfDoc, renderPage, queueRenderPage, showPrevPage, showNextPage, jumpToPage, zoomIn, zoomOut, resetZoom, updateBookmarkList, jumpToBookmark, addBookmarkModal, saveBookmark, editBookmark, deleteBookmark, closeModal, updateStarColor, toggleFullScreen };
+const showToast = (message) => {
+    const toastContainer = document.getElementById('toast-container');
+    toastContainer.innerHTML = ''; // Clear existing toasts
+    const toast = document.createElement('div');
+    toast.className = 'toast bg-green-500 text-white px-4 py-2 rounded shadow-md';
+    toast.textContent = message;
+    toastContainer.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add('show');
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                toast.remove();
+            }, 500);
+        }, 3000);
+    }, 100);
+};
+
+export { openDB, setPdfDoc, renderPage, queueRenderPage, showPrevPage, showNextPage, jumpToPage, zoomIn, zoomOut, resetZoom, updateBookmarkList, jumpToBookmark, addBookmarkModal, saveBookmark, editBookmark, confirmDeleteBookmark, deleteBookmark, closeModal, closeConfirmDeleteModal, updateStarColor, toggleFullScreen };
