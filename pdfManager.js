@@ -30,6 +30,12 @@ const cachePage = (page, dataUrl) => {
     store.put({ page, dataUrl });
 };
 
+const deleteCachedPage = (page) => {
+    const transaction = db.transaction([storeName], 'readwrite');
+    const store = transaction.objectStore(storeName);
+    store.delete(page);
+};
+
 const updateBookmarkList = () => {
     const bookmarkList = document.getElementById('bookmark-list');
     bookmarkList.innerHTML = '';
@@ -110,57 +116,44 @@ const setPdfDoc = (doc) => {
 const renderPage = (num) => {
     if (!pdfDoc) return;
     if (renderTask) renderTask.cancel();
-    getCachedPage(num).then((dataUrl) => {
-        if (dataUrl) {
-            renderFromCache(dataUrl, num);
-            return;
-        }
-        pageIsRendering = true;
-        const loadingElement = document.getElementById('loading');
-        if (loadingElement) loadingElement.style.display = 'flex';
-        pdfDoc.getPage(num).then((page) => {
-            const viewport = page.getViewport({ scale });
-            const outputScale = window.devicePixelRatio || 1;
-            canvas.width = Math.floor(viewport.width * outputScale);
-            canvas.height = Math.floor(viewport.height * outputScale);
-            canvas.style.width = '100%';
-            canvas.style.height = '100%';
-            const renderCtx = {
-                canvasContext: ctx,
-                viewport,
-                transform: [outputScale, 0, 0, outputScale, 0, 0]
-            };
-            renderTask = page.render(renderCtx);
-            renderTask.promise.then(() => {
+    pageIsRendering = true;
+    const loadingElement = document.getElementById('loading');
+    if (loadingElement) loadingElement.style.display = 'flex';
+    pdfDoc.getPage(num).then((page) => {
+        const viewport = page.getViewport({ scale });
+        const outputScale = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(viewport.width * outputScale);
+        canvas.height = Math.floor(viewport.height * outputScale);
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+        const renderCtx = {
+            canvasContext: ctx,
+            viewport,
+            transform: [outputScale, 0, 0, outputScale, 0, 0]
+        };
+        renderTask = page.render(renderCtx);
+        renderTask.promise.then(() => {
+            pageIsRendering = false;
+            if (loadingElement) loadingElement.style.display = 'none';
+            if (pageNumPending !== null) {
+                renderPage(pageNumPending);
+                pageNumPending = null;
+            }
+            deleteCachedPage(num);
+            cachePage(num, canvas.toDataURL());
+        }).catch((error) => {
+            if (error.name === 'RenderingCancelledException') {
                 pageIsRendering = false;
-                if (loadingElement) loadingElement.style.display = 'none';
                 if (pageNumPending !== null) {
                     renderPage(pageNumPending);
                     pageNumPending = null;
                 }
-                cachePage(num, canvas.toDataURL());
-            });
-            document.getElementById('page-info').textContent = `Page ${num} of ${pdfDoc.numPages}`;
-            localStorage.setItem('lastPage', num);
-            updateStarColor();
-            bufferNextPages(num);
+            }
         });
-    });
-};
-
-const renderFromCache = (dataUrl, num) => {
-    const img = new Image();
-    img.src = dataUrl;
-    img.onload = () => {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0);
         document.getElementById('page-info').textContent = `Page ${num} of ${pdfDoc.numPages}`;
         localStorage.setItem('lastPage', num);
         updateStarColor();
-        bufferNextPages(num);
-        const loadingElement = document.getElementById('loading');
-        if (loadingElement) loadingElement.style.display = 'none';
-    };
+    });
 };
 
 const queueRenderPage = (num) => {
@@ -211,35 +204,6 @@ const resetZoom = () => {
     queueRenderPage(pageNum);
 };
 
-const bufferNextPages = (currentPage) => {
-    const startPage = currentPage + 1;
-    const endPage = Math.min(currentPage + 5, pdfDoc.numPages);
-    for (let i = startPage; i <= endPage; i++) {
-        getCachedPage(i).then((dataUrl) => {
-            if (!dataUrl) {
-                pdfDoc.getPage(i).then((page) => {
-                    const viewport = page.getViewport({ scale });
-                    const outputScale = window.devicePixelRatio || 1;
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = Math.floor(viewport.width * outputScale);
-                    canvas.height = Math.floor(viewport.height * outputScale);
-                    canvas.style.width = `${viewport.width}px`;
-                    canvas.style.height = `${viewport.height}px`;
-                    const renderCtx = {
-                        canvasContext: ctx,
-                        viewport,
-                        transform: [outputScale, 0, 0, outputScale, 0, 0]
-                    };
-                    page.render(renderCtx).promise.then(() => {
-                        cachePage(i, canvas.toDataURL());
-                    });
-                });
-            }
-        });
-    }
-};
-
 const toggleFullScreen = () => {
     if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen();
@@ -251,4 +215,4 @@ const toggleFullScreen = () => {
     setTimeout(() => renderPage(pageNum), 100); // Re-render the page to adjust the canvas size after entering/exiting full-screen mode
 };
 
-export { openDB, getCachedPage, cachePage, setPdfDoc, renderPage, queueRenderPage, showPrevPage, showNextPage, jumpToPage, zoomIn, zoomOut, resetZoom, bufferNextPages, updateBookmarkList, jumpToBookmark, addBookmarkModal, saveBookmark, editBookmark, deleteBookmark, closeModal, updateStarColor, toggleFullScreen };
+export { openDB, setPdfDoc, renderPage, queueRenderPage, showPrevPage, showNextPage, jumpToPage, zoomIn, zoomOut, resetZoom, updateBookmarkList, jumpToBookmark, addBookmarkModal, saveBookmark, editBookmark, deleteBookmark, closeModal, updateStarColor, toggleFullScreen };
