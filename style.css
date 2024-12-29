@@ -11,3 +11,63 @@
     border: 1px solid #ccc;
     padding: 10px;
 }
+
+#pdf-render {
+    height: 100%;
+    width: 100%;
+    object-fit: contain; /* Ensure the PDF page maintains its aspect ratio and fits within the available space */
+}
+
+input[type="number"] {
+    cursor: text;
+}
+
+input[type="number"]:focus {
+    outline: none;
+}
+
+body, html {
+    user-select: none;
+    height: 100%;
+    margin: 0;
+}
+
+.pdf-viewer {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 0;
+}
+
+.h-full {
+    height: 100%;
+}
+
+.fullscreen {
+    width: 100vw;
+    height: 100vh;
+}
+
+/* Loading animation */
+#loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#loading .spinner {
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    border-left-color: #3498db;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

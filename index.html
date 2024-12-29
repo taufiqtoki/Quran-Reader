@@ -17,16 +17,6 @@
     input[type="number"]:focus {
       outline: none;
     }
-    body, html {
-      user-select: none;
-    }
-    .pdf-viewer {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
   </style>
 </head>
 <body class="bg-gray-100 h-screen" onkeydown="handleKeyDown(event)" ontouchstart="handleTouchStart(event)" ontouchmove="handleTouchMove(event)">
@@ -43,8 +33,8 @@
     </aside>
 
     <!-- Middle: PDF Viewer -->
-    <main class="flex-1 flex justify-center items-center bg-white shadow-md relative pdf-viewer" ondblclick="toggleFullScreen()" tabindex="0">
-      <canvas id="pdf-render" class="border"></canvas>
+    <main class="flex-1 flex justify-center items-center bg-white shadow-md relative" ondblclick="toggleFullScreen()">
+      <canvas id="pdf-render" class="border" tabindex="0"></canvas>
     </main>
 
     <!-- Right: Controls -->
@@ -56,10 +46,6 @@
       <div class="space-y-4">
         <button id="prev-page" class="bg-blue-500 text-white px-4 py-2 rounded w-full">Previous Page</button>
         <button id="next-page" class="bg-blue-500 text-white px-4 py-2 rounded w-full">Next Page</button>
-        <div class="flex items-center space-x-2">
-          <button id="zoom-in" class="bg-gray-500 text-white px-4 py-2 rounded">Zoom In</button>
-          <button id="zoom-out" class="bg-gray-500 text-white px-4 py-2 rounded">Zoom Out</button>
-        </div>
         <div class="flex items-center space-x-2">
           <input type="number" id="page-input" placeholder="Page #" class="border px-2 py-1 rounded flex-1" onclick="setFocus('input')" onblur="clearFocus('input')">
           <button id="go-to-page" class="bg-green-500 text-white px-4 py-2 rounded">Go</button>
@@ -93,29 +79,32 @@
     let pageNum = localStorage.getItem('lastPage') ? parseInt(localStorage.getItem('lastPage'), 10) : 1;
     let pageIsRendering = false;
     let pageNumPending = null;
-    let scale = 1;
     const canvas = document.getElementById('pdf-render');
     const ctx = canvas.getContext('2d');
     let bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
     let xDown = null;
     let yDown = null;
     let focusedElement = null;
- 
+
     const renderPage = (num) => {
       pageIsRendering = true;
       pdfDoc.getPage(num).then((page) => {
-        const viewport = page.getViewport({ scale });
+        const viewport = page.getViewport({ scale: 1 });
         const outputScale = window.devicePixelRatio || 1;
 
+        // Calculate scale to fit the canvas height within the viewport
+        const scale = Math.min(window.innerWidth / viewport.width, window.innerHeight / viewport.height);
+        const scaledViewport = page.getViewport({ scale });
+
         // Adjust canvas size for high-resolution displays
-        canvas.width = Math.floor(viewport.width * outputScale);
-        canvas.height = Math.floor(viewport.height * outputScale);
-        canvas.style.width = `${viewport.width}px`;
-        canvas.style.height = `${viewport.height}px`;
+        canvas.width = Math.floor(scaledViewport.width * outputScale);
+        canvas.height = Math.floor(scaledViewport.height * outputScale);
+        canvas.style.width = `${scaledViewport.width}px`;
+        canvas.style.height = `${scaledViewport.height}px`;
 
         const renderCtx = {
           canvasContext: ctx,
-          viewport,
+          viewport: scaledViewport,
           transform: [outputScale, 0, 0, outputScale, 0, 0]
         };
 
@@ -265,20 +254,10 @@
             showNextPage();
             break;
           case 'ArrowUp':
-          case 'PageUp':
             showPrevPage();
             break;
           case 'ArrowDown':
-          case 'PageDown':
             showNextPage();
-            break;
-          case 'Home':
-            pageNum = 1;
-            queueRenderPage(pageNum);
-            break;
-          case 'End':
-            pageNum = pdfDoc.numPages;
-            queueRenderPage(pageNum);
             break;
           case 'Enter':
           case ' ':
@@ -341,18 +320,6 @@
       }
     };
 
-    const zoomIn = () => {
-      scale += 0.1;
-      queueRenderPage(pageNum);
-    };
-
-    const zoomOut = () => {
-      if (scale > 0.2) {
-        scale -= 0.1;
-        queueRenderPage(pageNum);
-      }
-    };
-
     pdfjsLib.getDocument(url).promise.then((pdfDoc_) => {
       pdfDoc = pdfDoc_;
       renderPage(pageNum);
@@ -367,8 +334,6 @@
     document.getElementById('add-bookmark-modal').addEventListener('click', addBookmarkModal);
     document.getElementById('save-bookmark').addEventListener('click', saveBookmark);
     document.getElementById('cancel-modal').addEventListener('click', closeModal);
-    document.getElementById('zoom-in').addEventListener('click', zoomIn);
-    document.getElementById('zoom-out').addEventListener('click', zoomOut);
 
     document.getElementById('page-input').addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
@@ -376,8 +341,8 @@
       }
     });
 
-    document.querySelector('.pdf-viewer').addEventListener('wheel', handleWheel);
-    document.querySelector('.pdf-viewer').addEventListener('mousedown', handleMouseUpDown);
+    canvas.addEventListener('wheel', handleWheel);
+    canvas.addEventListener('mousedown', handleMouseUpDown);
 
     const toggleFullScreen = () => {
       if (!document.fullscreenElement) {
