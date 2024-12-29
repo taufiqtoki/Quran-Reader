@@ -16,6 +16,8 @@
     height: 100%;
     width: 100%;
     object-fit: contain; /* Ensure the PDF page maintains its aspect ratio and fits within the available space */
+    max-width: 100%;
+    height: auto;
 }
 
 input[type="number"] {
