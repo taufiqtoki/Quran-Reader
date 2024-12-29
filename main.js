@@ -1,16 +1,17 @@
-import { openDB, setPdfDoc, renderPage, queueRenderPage, showPrevPage, showNextPage, jumpToPage, zoomIn, zoomOut, resetZoom, updateBookmarkList, addBookmarkModal, saveBookmark, closeModal, jumpToBookmark, editBookmark, deleteBookmark, confirmDeleteBookmark, toggleFullScreen } from './pdfManager.js';
+import { openDB, setPdfDoc, renderPage, queueRenderPage, showPrevPage, showNextPage, jumpToPage, zoomIn, updateBookmarkList, addBookmarkModal, saveBookmark, closeModal, jumpToBookmark, editBookmark, deleteBookmark, confirmDeleteBookmark, toggleFullScreen } from './pdfManager.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
 const url = './assets/book.pdf';
 let pdfDoc = null;
 let pageNum = localStorage.getItem('lastPage') ? parseInt(localStorage.getItem('lastPage'), 10) : 1;
+let scale = window.devicePixelRatio || 1;
 
 openDB().then(() => {
     pdfjsLib.getDocument(url).promise.then((pdfDoc_) => {
         pdfDoc = pdfDoc_;
         setPdfDoc(pdfDoc);
-        renderPage(pageNum);
+        renderPage(pageNum, scale);
     });
 });
 
@@ -64,7 +65,7 @@ const handleWheel = (event) => { debounce(() => { if (event.deltaY > 0) showNext
 const handleMouseUpDown = (event) => { if (event.button === 4) showPrevPage(); else if (event.button === 5) showNextPage(); };
 
 const handleResize = () => {
-    renderPage(pageNum);
+    renderPage(pageNum, scale);
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -75,8 +76,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveBookmarkBtn = document.getElementById('save-bookmark');
     const cancelModalBtn = document.getElementById('cancel-modal');
     const zoomInBtn = document.getElementById('zoom-in');
-    const zoomOutBtn = document.getElementById('zoom-out');
-    const resetZoomBtn = document.getElementById('reset-zoom');
     const fullscreenBtn = document.getElementById('fullscreen');
     const pageInput = document.getElementById('page-input');
     const pdfViewer = document.querySelector('.pdf-viewer');
@@ -88,8 +87,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (saveBookmarkBtn) saveBookmarkBtn.addEventListener('click', saveBookmark);
     if (cancelModalBtn) cancelModalBtn.addEventListener('click', closeModal);
     if (zoomInBtn) zoomInBtn.addEventListener('click', zoomIn);
-    if (zoomOutBtn) zoomOutBtn.addEventListener('click', zoomOut);
-    if (resetZoomBtn) resetZoomBtn.addEventListener('click', resetZoom);
     if (fullscreenBtn) fullscreenBtn.addEventListener('click', toggleFullScreen);
     if (pageInput) pageInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') jumpToPage(); });
     if (pdfViewer) {
@@ -103,14 +100,17 @@ document.addEventListener('DOMContentLoaded', () => {
     window.addEventListener('resize', handleResize);
     document.addEventListener('fullscreenchange', handleResize);
     updateBookmarkList();
+
+    // Automatically click the zoom-in button once after every reload
+    if (zoomInBtn) {
+        zoomInBtn.click();
+    }
 });
 
 window.jumpToBookmark = jumpToBookmark;
 window.setFocus = setFocus;
 window.clearFocus = clearFocus;
 window.zoomIn = zoomIn;
-window.zoomOut = zoomOut;
-window.resetZoom = resetZoom;
 window.handleKeyDown = (event) => handleKeyDown(event, pdfDoc);
 window.editBookmark = editBookmark;
 window.deleteBookmark = deleteBookmark;

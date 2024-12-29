@@ -1,5 +1,5 @@
 const dbName = 'pdfCacheDB', storeName = 'pages';
-let db, pdfDoc = null, pageIsRendering = false, pageNumPending = null, scale = 1;
+let db, pdfDoc = null, pageIsRendering = false, pageNumPending = null, scale = window.devicePixelRatio || 1;
 const canvas = document.getElementById('pdf-render'), ctx = canvas.getContext('2d');
 let renderTask = null, bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || {}, pageNum = localStorage.getItem('lastPage') ? parseInt(localStorage.getItem('lastPage'), 10) : 1;
 
@@ -163,12 +163,13 @@ const setPdfDoc = (doc) => {
     pdfDoc = doc;
 };
 
-const renderPage = (num) => {
+const renderPage = (num, scale) => {
     if (!pdfDoc) return;
     if (renderTask) renderTask.cancel();
     pageIsRendering = true;
     const loadingElement = document.getElementById('loading');
     if (loadingElement) loadingElement.style.display = 'flex';
+    canvas.style.visibility = 'hidden'; // Hide the canvas until rendering is complete
     pdfDoc.getPage(num).then((page) => {
         const viewport = page.getViewport({ scale });
         const outputScale = window.devicePixelRatio || 1;
@@ -176,6 +177,7 @@ const renderPage = (num) => {
         canvas.height = Math.floor(viewport.height * outputScale);
         canvas.style.width = '100%';
         canvas.style.height = '100%';
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas before rendering
         const renderCtx = {
             canvasContext: ctx,
             viewport,
@@ -184,9 +186,10 @@ const renderPage = (num) => {
         renderTask = page.render(renderCtx);
         renderTask.promise.then(() => {
             pageIsRendering = false;
+            canvas.style.visibility = 'visible'; // Show the canvas after rendering is complete
             if (loadingElement) loadingElement.style.display = 'none';
             if (pageNumPending !== null) {
-                renderPage(pageNumPending);
+                renderPage(pageNumPending, scale);
                 pageNumPending = null;
             }
             deleteCachedPage(num);
@@ -195,7 +198,7 @@ const renderPage = (num) => {
             if (error.name === 'RenderingCancelledException') {
                 pageIsRendering = false;
                 if (pageNumPending !== null) {
-                    renderPage(pageNumPending);
+                    renderPage(pageNumPending, scale);
                     pageNumPending = null;
                 }
             }
@@ -210,7 +213,7 @@ const queueRenderPage = (num) => {
     if (pageIsRendering) {
         pageNumPending = num;
     } else {
-        renderPage(num);
+        renderPage(num, scale);
     }
 };
 
@@ -250,7 +253,7 @@ const zoomOut = () => {
 };
 
 const resetZoom = () => {
-    scale = 1;
+    scale = window.devicePixelRatio || 1;
     queueRenderPage(pageNum);
 };
 
@@ -262,7 +265,7 @@ const toggleFullScreen = () => {
             document.exitFullscreen();
         }
     }
-    setTimeout(() => renderPage(pageNum), 100); // Re-render the page to adjust the canvas size after entering/exiting full-screen mode
+    setTimeout(() => renderPage(pageNum, scale), 100); // Re-render the page to adjust the canvas size after entering/exiting full-screen mode
 };
 
 const showToast = (message) => {
