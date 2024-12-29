@@ -1,4 +1,4 @@
-import { openDB, setPdfDoc, renderPage, queueRenderPage, showPrevPage, showNextPage, jumpToPage, zoomIn, zoomOut, resetZoom, updateBookmarkList, addBookmarkModal, saveBookmark, closeModal, jumpToBookmark, toggleFullScreen } from './pdfManager.js';
+import { openDB, setPdfDoc, renderPage, queueRenderPage, showPrevPage, showNextPage, jumpToPage, zoomIn, zoomOut, resetZoom, updateBookmarkList, addBookmarkModal, saveBookmark, closeModal, jumpToBookmark, editBookmark, deleteBookmark, toggleFullScreen } from './pdfManager.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
@@ -19,20 +19,27 @@ let xDown = null, yDown = null, focusedElement = null, debounceTimeout;
 const setFocus = (element) => { focusedElement = element; };
 const clearFocus = (element) => { if (focusedElement === element) focusedElement = null; };
 
+const debounce = (func, delay) => {
+    clearTimeout(debounceTimeout);
+    debounceTimeout = setTimeout(func, delay);
+};
+
 const handleKeyDown = (event, pdfDoc) => {
-    if (focusedElement !== 'input') {
-        switch (event.key) {
-            case 'ArrowLeft': showPrevPage(); break;
-            case 'ArrowRight': showNextPage(); break;
-            case 'ArrowUp': case 'PageUp': showPrevPage(); break;
-            case 'ArrowDown': case 'PageDown': showNextPage(); break;
-            case 'Home': pageNum = 1; queueRenderPage(pageNum); break;
-            case 'End': pageNum = pdfDoc.numPages; queueRenderPage(pageNum); break;
-            case 'Enter': case ' ': showNextPage(); break;
-            case 'f': toggleFullScreen(); break;
-            case 'b': addBookmarkModal(); break;
-            default: break;
-        }
+    if (document.getElementById('bookmark-modal').classList.contains('hidden')) {
+        debounce(() => {
+            switch (event.key) {
+                case 'ArrowLeft': showPrevPage(); break;
+                case 'ArrowRight': showNextPage(); break;
+                case 'ArrowUp': case 'PageUp': showPrevPage(); break;
+                case 'ArrowDown': case 'PageDown': showNextPage(); break;
+                case 'Home': pageNum = 1; queueRenderPage(pageNum); break;
+                case 'End': pageNum = pdfDoc.numPages; queueRenderPage(pageNum); break;
+                case 'Enter': case ' ': showNextPage(); break;
+                case 'f': toggleFullScreen(); break;
+                case 'b': addBookmarkModal(); break;
+                default: break;
+            }
+        }, 200); // Adjust the delay as needed
     }
 };
 
@@ -51,8 +58,6 @@ const handleTouchMove = (evt) => {
     }
     xDown = null; yDown = null;
 };
-
-const debounce = (func, delay) => { clearTimeout(debounceTimeout); debounceTimeout = setTimeout(func, delay); };
 
 const handleWheel = (event) => { debounce(() => { if (event.deltaY > 0) showNextPage(); else showPrevPage(); }, 100); };
 
@@ -107,3 +112,13 @@ window.zoomIn = zoomIn;
 window.zoomOut = zoomOut;
 window.resetZoom = resetZoom;
 window.handleKeyDown = (event) => handleKeyDown(event, pdfDoc);
+window.editBookmark = editBookmark;
+window.deleteBookmark = deleteBookmark;
+window.showPrevPage = showPrevPage;
+window.showNextPage = showNextPage;
+window.jumpToPage = jumpToPage;
+window.toggleFullScreen = toggleFullScreen;
+window.addBookmarkModal = addBookmarkModal;
+window.saveBookmark = saveBookmark;
+window.closeModal = closeModal;
+window.updateBookmarkList = updateBookmarkList;

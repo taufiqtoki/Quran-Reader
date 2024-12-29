@@ -1,7 +1,7 @@
 const dbName = 'pdfCacheDB', storeName = 'pages';
 let db, pdfDoc = null, pageIsRendering = false, pageNumPending = null, scale = 1;
 const canvas = document.getElementById('pdf-render'), ctx = canvas.getContext('2d');
-let renderTask = null, bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [], pageNum = localStorage.getItem('lastPage') ? parseInt(localStorage.getItem('lastPage'), 10) : 1;
+let renderTask = null, bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || {}, pageNum = localStorage.getItem('lastPage') ? parseInt(localStorage.getItem('lastPage'), 10) : 1;
 
 const openDB = () => new Promise((resolve, reject) => {
     const request = indexedDB.open(dbName, 1);
@@ -39,15 +39,18 @@ const deleteCachedPage = (page) => {
 const updateBookmarkList = () => {
     const bookmarkList = document.getElementById('bookmark-list');
     bookmarkList.innerHTML = '';
-    bookmarks.forEach((bookmark, index) => {
-        const li = document.createElement('li');
-        li.className = 'flex justify-between items-center bg-gray-200 px-4 py-2 rounded';
-        li.innerHTML = `<span class="cursor-pointer" onclick="jumpToBookmark(${bookmark.page})">${bookmark.name} (Page ${bookmark.page})</span>
-            <div class="flex space-x-2">
-                <button class="text-blue-500" onclick="editBookmark(${index})">✎</button>
-                <button class="text-red-500" onclick="deleteBookmark(${index})">✖</button>
-            </div>`;
-        bookmarkList.appendChild(li);
+    Object.keys(bookmarks).forEach((page) => {
+        const bookmark = bookmarks[page];
+        if (bookmark) { // Add check to skip null values
+            const li = document.createElement('li');
+            li.className = 'flex justify-between items-center bg-gray-200 px-4 py-2 rounded';
+            li.innerHTML = `<span class="cursor-pointer" onclick="jumpToBookmark(${page})">${bookmark.name} (Page ${page})</span>
+                <div class="flex space-x-2">
+                    <button class="text-blue-500" onclick="editBookmark(${page})">✎</button>
+                    <button class="text-red-500" onclick="deleteBookmark(${page})">✖</button>
+                </div>`;
+            bookmarkList.appendChild(li);
+        }
     });
     localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
 };
@@ -60,28 +63,33 @@ const jumpToBookmark = (page) => {
 const addBookmarkModal = () => {
     document.getElementById('modal-page-number').value = pageNum;
     document.getElementById('modal-bookmark-name').value = 'Continue';
-    document.getElementById('bookmark-modal').classList.remove('hidden');
+    const modal = document.getElementById('bookmark-modal');
+    modal.classList.remove('hidden');
+    modal.removeAttribute('inert');
+    document.addEventListener('keydown', handleModalKeyDown);
+    document.addEventListener('click', handleModalClick, true);
 };
 
 const saveBookmark = () => {
     const page = parseInt(document.getElementById('modal-page-number').value, 10);
     const name = document.getElementById('modal-bookmark-name').value.trim();
     if (!page || !name) return;
-    bookmarks.push({ page, name });
+    bookmarks[page] = { name };
     updateBookmarkList();
     closeModal();
     updateStarColor();
 };
 
-const editBookmark = (index) => {
-    const bookmark = bookmarks[index];
-    document.getElementById('modal-page-number').value = bookmark.page;
+const editBookmark = (page) => {
+    const bookmark = bookmarks[page];
+    document.getElementById('modal-page-number').value = page;
     document.getElementById('modal-bookmark-name').value = bookmark.name;
-    document.getElementById('bookmark-modal').classList.remove('hidden');
+    const modal = document.getElementById('bookmark-modal');
+    modal.classList.remove('hidden');
+    modal.removeAttribute('inert');
     const saveButton = document.getElementById('save-bookmark');
     saveButton.onclick = () => {
-        bookmarks[index] = {
-            page: parseInt(document.getElementById('modal-page-number').value, 10),
+        bookmarks[page] = {
             name: document.getElementById('modal-bookmark-name').value.trim()
         };
         updateBookmarkList();
@@ -89,23 +97,46 @@ const editBookmark = (index) => {
     };
     document.getElementById('bookmark-modal').onkeydown = (event) => {
         if (event.key === 'Enter') {
+            event.preventDefault();
+            event.stopPropagation();
             saveButton.click();
         }
     };
 };
 
-const deleteBookmark = (index) => {
-    bookmarks.splice(index, 1);
+const deleteBookmark = (page) => {
+    delete bookmarks[page];
     updateBookmarkList();
 };
 
 const closeModal = () => {
-    document.getElementById('bookmark-modal').classList.add('hidden');
+    const modal = document.getElementById('bookmark-modal');
+    modal.classList.add('hidden');
+    modal.setAttribute('inert', '');
+    document.removeEventListener('keydown', handleModalKeyDown);
+    document.removeEventListener('click', handleModalClick, true);
+};
+
+const handleModalKeyDown = (event) => {
+    if (event.key === 'Escape') {
+        closeModal();
+    } else if (event.key === 'Enter') {
+        event.preventDefault();
+        saveBookmark();
+    } else {
+        event.stopPropagation();
+    }
+};
+
+const handleModalClick = (event) => {
+    if (!document.getElementById('bookmark-modal').contains(event.target)) {
+        event.stopPropagation();
+    }
 };
 
 const updateStarColor = () => {
     const addBookmarkButton = document.getElementById('add-bookmark-modal');
-    const isBookmarked = bookmarks.some(bookmark => bookmark.page === pageNum);
+    const isBookmarked = bookmarks.hasOwnProperty(pageNum);
     addBookmarkButton.style.color = isBookmarked ? 'blue' : 'black';
 };
 
