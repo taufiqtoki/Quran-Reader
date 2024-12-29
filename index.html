@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Al Quranul Kareem</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
   <link href="./style.css" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
   <script src="./main.js" type="module" defer></script>
@@ -17,14 +18,15 @@
         <h2 class="text-xl font-bold">Bookmarks</h2>
         <button id="add-bookmark-modal" class="text-2xl">★</button>
       </div>
-      <ul id="bookmark-list" class="space-y-2">
-        <!-- Bookmarks will be dynamically added here -->
-      </ul>
+      <ul id="bookmark-list" class="space-y-2"></ul>
     </aside>
 
     <!-- Middle: PDF Viewer -->
-    <main class="flex-1 flex justify-center items-center bg-white shadow-md relative pdf-viewer" ondblclick="toggleFullScreen()" tabindex="0">
+    <main class="flex-1 flex justify-center items-center bg-white shadow-md relative pdf-viewer" tabindex="0">
       <canvas id="pdf-render" class="border"></canvas>
+      <div id="loading" class="absolute inset-0 flex justify-center items-center bg-white bg-opacity-75">
+        <div class="spinner"></div>
+      </div>
     </main>
 
     <!-- Right: Controls -->
@@ -34,12 +36,21 @@
         <p class="text-gray-600">My Favourite Book</p>
       </div>
       <div class="space-y-4">
-        <button id="prev-page" class="bg-blue-500 text-white px-4 py-2 rounded w-full">Previous Page</button>
-        <button id="next-page" class="bg-blue-500 text-white px-4 py-2 rounded w-full">Next Page</button>
+        <button id="prev-page" class="bg-blue-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
+          <i class="fas fa-arrow-left mr-2"></i> Previous Page
+        </button>
+        <button id="next-page" class="bg-blue-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
+          <i class="fas fa-arrow-right mr-2"></i> Next Page
+        </button>
         <div class="flex items-center space-x-2">
           <input type="number" id="page-input" placeholder="Page #" class="border px-2 py-1 rounded flex-1" onclick="setFocus('input')" onblur="clearFocus('input')">
-          <button id="go-to-page" class="bg-green-500 text-white px-4 py-2 rounded">Go</button>
+          <button id="go-to-page" class="bg-green-500 text-white px-4 py-2 rounded flex items-center justify-center">
+            <i class="fas fa-search mr-2"></i> Go
+          </button>
         </div>
+        <button id="fullscreen" class="bg-yellow-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
+          <i class="fas fa-expand mr-2"></i> Full Screen
+        </button>
       </div>
       <div class="mt-6 text-center">
         <span id="page-info" class="text-lg text-gray-700"></span>
