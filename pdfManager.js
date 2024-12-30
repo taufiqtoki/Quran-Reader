@@ -180,6 +180,30 @@ const setPdfDoc = (doc) => {
     pdfDoc = doc;
 };
 
+const prefetchPages = (currentPage, numPagesToPrefetch) => {
+    const startPage = currentPage + 1;
+    const endPage = Math.min(currentPage + numPagesToPrefetch, pdfDoc.numPages);
+
+    for (let page = startPage; page <= endPage; page++) {
+        pdfDoc.getPage(page).then((page) => {
+            const viewport = page.getViewport({ scale });
+            const outputScale = window.devicePixelRatio || 1;
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.floor(viewport.width * outputScale);
+            canvas.height = Math.floor(viewport.height * outputScale);
+            const ctx = canvas.getContext('2d');
+            const renderCtx = {
+                canvasContext: ctx,
+                viewport,
+                transform: [outputScale, 0, 0, outputScale, 0, 0]
+            };
+            page.render(renderCtx).promise.then(() => {
+                cachePage(page.pageNumber, canvas.toDataURL());
+            });
+        });
+    }
+};
+
 const renderPage = (num, scale) => {
     if (!pdfDoc) return;
     if (renderTask) renderTask.cancel();
@@ -212,6 +236,7 @@ const renderPage = (num, scale) => {
             deleteCachedPage(num);
             cachePage(num, canvas.toDataURL());
             updatePageProgress(num);
+            prefetchPages(num, 5); // Prefetch the next 5 pages
         }).catch((error) => {
             if (error.name === 'RenderingCancelledException') {
                 pageIsRendering = false;
