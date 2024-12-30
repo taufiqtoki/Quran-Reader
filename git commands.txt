@@ -5,3 +5,11 @@ git commit -m "first commit"
 git branch -M main
 git remote add origin https://github.com/taufiqtoki/Quran-Reader.git
 git push -u origin main
+
+
+
+go button also clears textbox
+draggable manual bookmarks
+re-introduce zoom functioanalities with icons only
+page-info progress branch
+transparent next and Previous button on pdf viewer

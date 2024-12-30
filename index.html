@@ -36,12 +36,7 @@
         <p class="text-gray-600">My Favourite Book</p>
       </div>
       <div class="space-y-4">
-        <div class="flex items-center space-x-2">
-          <input type="number" id="page-input" placeholder="Page #" class="border px-2 py-1 rounded flex-1" onclick="setFocus('input')" onblur="clearFocus('input')" onkeydown="handlePageInputKeyDown(event)">
-          <button id="go-to-page" class="bg-green-500 text-white px-4 py-2 rounded flex items-center justify-center">
-            <i class="fas fa-search mr-2"></i> Go
-          </button>
-        </div>
+        
         <button id="prev-page" class="bg-blue-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
           <i class="fas fa-arrow-left mr-2"></i> Previous Page
         </button>
@@ -54,6 +49,12 @@
         <button id="fullscreen" class="bg-yellow-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
           <i class="fas fa-expand mr-2"></i> Full Screen
         </button>
+        <div class="flex items-center space-x-2">
+          <input type="number" id="page-input" placeholder="Page #" class="border px-2 py-1 rounded flex-1" onclick="setFocus('input')" onblur="clearFocus('input')" onkeydown="handlePageInputKeyDown(event)">
+          <button id="go-to-page" class="bg-green-500 text-white px-4 py-2 rounded flex items-center justify-center">
+            <i class="fas fa-search mr-2"></i> Go
+          </button>
+        </div>
       </div>
       <div class="mt-6 text-center">
         <span id="page-info" class="text-lg text-gray-700"></span>
