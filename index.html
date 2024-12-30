@@ -18,7 +18,7 @@
         <h2 class="text-xl font-bold">Bookmarks</h2>
         <button id="add-bookmark-modal" class="text-2xl">★</button>
       </div>
-      <ul id="bookmark-list" class="space-y-2"></ul>
+      <ul id="bookmark-list" class="space-y-2" draggable="true"></ul>
     </aside>
 
     <!-- Middle: PDF Viewer -->
@@ -27,6 +27,12 @@
       <div id="loading" class="absolute inset-0 flex justify-center items-center bg-white bg-opacity-75">
         <div class="spinner"></div>
       </div>
+      <button id="prev-page" class="nav-button prev">
+        <i class="fas fa-arrow-left"></i>
+      </button>
+      <button id="next-page" class="nav-button next">
+        <i class="fas fa-arrow-right"></i>
+      </button>
     </main>
 
     <!-- Right: Controls -->
@@ -37,26 +43,32 @@
       </div>
       <div class="space-y-4">
         
-        <button id="prev-page" class="bg-blue-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
+        <button id="prev-page-btn" class="bg-blue-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
           <i class="fas fa-arrow-left mr-2"></i> Previous Page
         </button>
-        <button id="next-page" class="bg-blue-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
+        <button id="next-page-btn" class="bg-blue-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
           <i class="fas fa-arrow-right mr-2"></i> Next Page
         </button>
-        <button id="zoom-in" class="bg-purple-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
-          <i class="fas fa-search-plus mr-2"></i> Crispy Page
-        </button>
+        <div class="flex space-x-2">
+          <button id="zoom-in" class="bg-purple-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
+            <i class="fas fa-search-plus mr-2"></i> Crisp Page
+          </button>
+        </div>
         <button id="fullscreen" class="bg-yellow-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
           <i class="fas fa-expand mr-2"></i> Full Screen
         </button>
+      </div>
+      <div class="mt-6 text-center space-y-4">
         <div class="flex items-center space-x-2">
           <input type="number" id="page-input" placeholder="Page #" class="border px-2 py-1 rounded flex-1" onclick="setFocus('input')" onblur="clearFocus('input')" onkeydown="handlePageInputKeyDown(event)">
           <button id="go-to-page" class="bg-green-500 text-white px-4 py-2 rounded flex items-center justify-center">
             <i class="fas fa-search mr-2"></i> Go
           </button>
         </div>
-      </div>
-      <div class="mt-6 text-center">
+        
+        <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+          <div id="page-progress" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+        </div>
         <span id="page-info" class="text-lg text-gray-700"></span>
       </div>
     </aside>

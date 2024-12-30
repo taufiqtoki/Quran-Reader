@@ -26,3 +26,26 @@ body, html { user-select: none; height: 100%; margin: 0; }
 .toast.show {
   opacity: 1;
 }
+
+/* Transparent next and previous buttons */
+.pdf-viewer .nav-button {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.5);
+  border: none;
+  padding: 10px;
+  cursor: pointer;
+  z-index: 1000;
+}
+.pdf-viewer .nav-button.prev {
+  left: 10px;
+}
+.pdf-viewer .nav-button.next {
+  right: 10px;
+}
+
+
+#page-progress {
+  height: 100%; /* Ensure the progress bar has a height */
+}

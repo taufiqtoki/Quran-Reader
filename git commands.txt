@@ -8,8 +8,11 @@ git push -u origin main
 
 
 
-go button also clears textbox
-draggable manual bookmarks
-re-introduce zoom functioanalities with icons only
+
+bookmarks: last added bookmarks show in last. add auto 10 second timer for bookmark auto save
+zoom functioanalities with icons takes nore space
 page-info progress branch
 transparent next and Previous button on pdf viewer
+i didnt ask you to remove next Previous button which was earlier, i wanted new transparent buttons on pdf pages
+
+do the part of pdfmanager.js

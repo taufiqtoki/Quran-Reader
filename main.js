@@ -69,8 +69,8 @@ const handleResize = () => {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    const prevPageBtn = document.getElementById('prev-page');
-    const nextPageBtn = document.getElementById('next-page');
+    const prevPageBtn = document.getElementById('prev-page-btn');
+    const nextPageBtn = document.getElementById('next-page-btn');
     const goToPageBtn = document.getElementById('go-to-page');
     const addBookmarkModalBtn = document.getElementById('add-bookmark-modal');
     const saveBookmarkBtn = document.getElementById('save-bookmark');
@@ -80,15 +80,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const pageInput = document.getElementById('page-input');
     const pdfViewer = document.querySelector('.pdf-viewer');
 
-    if (prevPageBtn) prevPageBtn.addEventListener('click', showPrevPage);
-    if (nextPageBtn) nextPageBtn.addEventListener('click', showNextPage);
-    if (goToPageBtn) goToPageBtn.addEventListener('click', jumpToPage);
-    if (addBookmarkModalBtn) addBookmarkModalBtn.addEventListener('click', addBookmarkModal);
-    if (saveBookmarkBtn) saveBookmarkBtn.addEventListener('click', saveBookmark);
-    if (cancelModalBtn) cancelModalBtn.addEventListener('click', closeModal);
-    if (zoomInBtn) zoomInBtn.addEventListener('click', zoomIn);
-    if (fullscreenBtn) fullscreenBtn.addEventListener('click', toggleFullScreen);
-    if (pageInput) pageInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') jumpToPage(); });
+    const addEventListenerIfExists = (element, event, handler) => {
+        if (element) element.addEventListener(event, handler);
+    };
+
+    addEventListenerIfExists(prevPageBtn, 'click', showPrevPage);
+    addEventListenerIfExists(nextPageBtn, 'click', showNextPage);
+    addEventListenerIfExists(goToPageBtn, 'click', () => {
+        jumpToPage();
+        pageInput.value = '';
+    });
+    addEventListenerIfExists(addBookmarkModalBtn, 'click', addBookmarkModal);
+    addEventListenerIfExists(saveBookmarkBtn, 'click', saveBookmark);
+    addEventListenerIfExists(cancelModalBtn, 'click', closeModal);
+    addEventListenerIfExists(zoomInBtn, 'click', zoomIn);
+    addEventListenerIfExists(fullscreenBtn, 'click', toggleFullScreen);
+    addEventListenerIfExists(pageInput, 'keydown', (event) => { if (event.key === 'Enter') jumpToPage(); });
     if (pdfViewer) {
         pdfViewer.addEventListener('wheel', handleWheel);
         pdfViewer.addEventListener('mousedown', handleMouseUpDown);

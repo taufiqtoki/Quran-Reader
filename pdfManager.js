@@ -2,6 +2,7 @@ const dbName = 'pdfCacheDB', storeName = 'pages';
 let db, pdfDoc = null, pageIsRendering = false, pageNumPending = null, scale = window.devicePixelRatio || 1;
 const canvas = document.getElementById('pdf-render'), ctx = canvas.getContext('2d');
 let renderTask = null, bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || {}, pageNum = localStorage.getItem('lastPage') ? parseInt(localStorage.getItem('lastPage'), 10) : 1;
+let autoSaveTimer;
 
 const openDB = () => new Promise((resolve, reject) => {
     const request = indexedDB.open(dbName, 1);
@@ -39,11 +40,27 @@ const deleteCachedPage = (page) => {
 const updateBookmarkList = () => {
     const bookmarkList = document.getElementById('bookmark-list');
     bookmarkList.innerHTML = '';
-    Object.keys(bookmarks).forEach((page) => {
+    Object.keys(bookmarks).sort((a, b) => a - b).forEach((page) => {
         const bookmark = bookmarks[page];
         if (bookmark) { // Add check to skip null values
             const li = document.createElement('li');
             li.className = 'flex justify-between items-center bg-gray-200 px-4 py-2 rounded';
+            li.draggable = true;
+            li.ondragstart = (event) => {
+                event.dataTransfer.setData('text/plain', page);
+            };
+            li.ondragover = (event) => {
+                event.preventDefault();
+            };
+            li.ondrop = (event) => {
+                event.preventDefault();
+                const draggedPage = event.dataTransfer.getData('text/plain');
+                const targetPage = page;
+                const temp = bookmarks[draggedPage];
+                bookmarks[draggedPage] = bookmarks[targetPage];
+                bookmarks[targetPage] = temp;
+                updateBookmarkList();
+            };
             li.innerHTML = `<span class="cursor-pointer" onclick="jumpToBookmark(${page})">${bookmark.name} (Page ${page})</span>
                 <div class="flex space-x-2">
                     <button class="text-blue-500" onclick="editBookmark(${page})"><i class="fas fa-edit"></i></button>
@@ -194,6 +211,7 @@ const renderPage = (num, scale) => {
             }
             deleteCachedPage(num);
             cachePage(num, canvas.toDataURL());
+            updatePageProgress(num);
         }).catch((error) => {
             if (error.name === 'RenderingCancelledException') {
                 pageIsRendering = false;
@@ -217,17 +235,88 @@ const queueRenderPage = (num) => {
     }
 };
 
-const showPrevPage = () => {
-    if (pageNum <= 1) return;
-    pageNum--;
-    queueRenderPage(pageNum);
+const updatePageProgress = (num) => {
+    const progress = (num / pdfDoc.numPages) * 100;
+    document.getElementById('page-progress').style.width = `${progress}%`;
 };
 
-const showNextPage = () => {
-    if (pageNum >= pdfDoc.numPages) return;
-    pageNum++;
-    queueRenderPage(pageNum);
+const showToast = (message) => {
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = message;
+    document.body.appendChild(toast);
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
 };
+
+document.addEventListener('DOMContentLoaded', () => {
+    const prevPageBtn = document.getElementById('prev-page');
+    const nextPageBtn = document.getElementById('next-page');
+    const zoomInBtn = document.getElementById('zoom-in');
+    const zoomOutBtn = document.getElementById('zoom-out');
+    const addBookmarkModalBtn = document.getElementById('add-bookmark-modal');
+    const saveBookmarkBtn = document.getElementById('save-bookmark');
+    const closeModalBtn = document.getElementById('close-modal');
+    const closeConfirmDeleteModalBtn = document.getElementById('close-confirm-delete-modal');
+
+    if (prevPageBtn) {
+        prevPageBtn.addEventListener('click', () => {
+            if (pageNum <= 1) return;
+            pageNum--;
+            queueRenderPage(pageNum);
+        });
+    }
+
+    if (nextPageBtn) {
+        nextPageBtn.addEventListener('click', () => {
+            if (pageNum >= pdfDoc.numPages) return;
+            pageNum++;
+            queueRenderPage(pageNum);
+        });
+    }
+
+    if (zoomInBtn) {
+        zoomInBtn.addEventListener('click', () => {
+            scale += 0.25;
+            queueRenderPage(pageNum);
+        });
+    }
+
+    if (zoomOutBtn) {
+        zoomOutBtn.addEventListener('click', () => {
+            if (scale <= 0.25) return;
+            scale -= 0.25;
+            queueRenderPage(pageNum);
+        });
+    }
+
+    if (addBookmarkModalBtn) {
+        addBookmarkModalBtn.addEventListener('click', addBookmarkModal);
+    }
+
+    if (saveBookmarkBtn) {
+        saveBookmarkBtn.addEventListener('click', saveBookmark);
+    }
+
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', closeModal);
+    }
+
+    if (closeConfirmDeleteModalBtn) {
+        closeConfirmDeleteModalBtn.addEventListener('click', closeConfirmDeleteModal);
+    }
+
+    openDB().then(() => {
+        pdfjsLib.getDocument('./assets/book.pdf').promise.then((doc) => { // Update the path to your PDF file
+            setPdfDoc(doc);
+            queueRenderPage(pageNum);
+            updateBookmarkList();
+        }).catch((error) => {
+            console.error('Error loading PDF:', error);
+        });
+    });
+});
 
 const jumpToPage = () => {
     const pageInput = document.getElementById('page-input');
@@ -237,24 +326,8 @@ const jumpToPage = () => {
         if (loadingElement) loadingElement.style.display = 'flex';
         pageNum = page;
         queueRenderPage(pageNum);
+        pageInput.value = ''; // Clear the textbox
     }
-};
-
-const zoomIn = () => {
-    scale += 0.1;
-    queueRenderPage(pageNum);
-};
-
-const zoomOut = () => {
-    if (scale > 0.2) {
-        scale -= 0.1;
-        queueRenderPage(pageNum);
-    }
-};
-
-const resetZoom = () => {
-    scale = window.devicePixelRatio || 1;
-    queueRenderPage(pageNum);
 };
 
 const toggleFullScreen = () => {
@@ -268,22 +341,22 @@ const toggleFullScreen = () => {
     setTimeout(() => renderPage(pageNum, scale), 100); // Re-render the page to adjust the canvas size after entering/exiting full-screen mode
 };
 
-const showToast = (message) => {
-    const toastContainer = document.getElementById('toast-container');
-    toastContainer.innerHTML = ''; // Clear existing toasts
-    const toast = document.createElement('div');
-    toast.className = 'toast bg-green-500 text-white px-4 py-2 rounded shadow-md';
-    toast.textContent = message;
-    toastContainer.appendChild(toast);
-    setTimeout(() => {
-        toast.classList.add('show');
-        setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => {
-                toast.remove();
-            }, 500);
-        }, 3000);
-    }, 100);
+const showNextPage = () => {
+    if (pageNum >= pdfDoc.numPages) return;
+    pageNum++;
+    queueRenderPage(pageNum);
 };
 
-export { openDB, setPdfDoc, renderPage, queueRenderPage, showPrevPage, showNextPage, jumpToPage, zoomIn, zoomOut, resetZoom, updateBookmarkList, jumpToBookmark, addBookmarkModal, saveBookmark, editBookmark, confirmDeleteBookmark, deleteBookmark, closeModal, closeConfirmDeleteModal, updateStarColor, toggleFullScreen };
+const showPrevPage = () => {
+    if (pageNum <= 1) return;
+    pageNum--;
+    queueRenderPage(pageNum);
+};
+
+const zoomIn = () => {
+    scale += 0.25;
+    queueRenderPage(pageNum);
+};
+
+// Ensure all necessary functions are exported
+export { openDB, setPdfDoc, renderPage, queueRenderPage, updateBookmarkList, jumpToBookmark, addBookmarkModal, saveBookmark, editBookmark, confirmDeleteBookmark, deleteBookmark, closeModal, closeConfirmDeleteModal, updateStarColor, jumpToPage, toggleFullScreen, showNextPage, showPrevPage, zoomIn };
