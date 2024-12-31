@@ -70,7 +70,7 @@ const startAutoSaveTimer = () => {
 
 const addBookmarkModal = () => {
     document.getElementById('modal-page-number').value = pageNum;
-    document.getElementById('modal-bookmark-name').value = bookmarks[pageNum] ? bookmarks[pageNum].name : '';
+    document.getElementById('modal-bookmark-name').value = bookmarks[pageNum] ? bookmarks[pageNum].name : 'Continue';
     const modal = document.getElementById('bookmark-modal');
     modal.classList.remove('hidden');
     modal.removeAttribute('inert');
@@ -122,6 +122,8 @@ const confirmDeleteBookmark = (page) => {
     const modal = document.getElementById('confirm-delete-modal');
     modal.classList.remove('hidden');
     modal.removeAttribute('inert');
+    modal.focus();
+    document.addEventListener('keydown', handleConfirmDeleteKeyDown, true);
     document.getElementById('confirm-delete').onclick = () => {
         deleteBookmark(page);
         closeConfirmDeleteModal();
@@ -147,6 +149,7 @@ const closeConfirmDeleteModal = () => {
     const modal = document.getElementById('confirm-delete-modal');
     modal.classList.add('hidden');
     modal.setAttribute('inert', '');
+    document.removeEventListener('keydown', handleConfirmDeleteKeyDown, true);
 };
 
 const handleModalKeyDown = (event) => {
@@ -155,6 +158,20 @@ const handleModalKeyDown = (event) => {
     } else if (event.key === 'Enter') {
         event.preventDefault();
         saveBookmark();
+    } else {
+        event.stopPropagation();
+    }
+};
+
+const handleConfirmDeleteKeyDown = (event) => {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        event.stopPropagation();
+        document.getElementById('confirm-delete').click();
+    } else if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        closeConfirmDeleteModal();
     } else {
         event.stopPropagation();
     }
