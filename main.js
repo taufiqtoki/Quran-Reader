@@ -25,7 +25,7 @@ const debounce = (func, delay) => {
     debounceTimeout = setTimeout(func, delay);
 };
 
-const handleKeyDown = (event, pdfDoc) => {
+const handleKeyDown = (event) => {
     if (document.getElementById('bookmark-modal').classList.contains('hidden')) {
         debounce(() => {
             if (event.ctrlKey && event.key === 'b') {
@@ -111,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pdfViewer.addEventListener('mousedown', handleMouseUpDown);
         pdfViewer.ondblclick = toggleFullScreen;
     }
-    document.addEventListener('keydown', (event) => handleKeyDown(event, pdfDoc));
+    document.addEventListener('keydown', handleKeyDown);
     document.addEventListener('touchstart', handleTouchStart);
     document.addEventListener('touchmove', handleTouchMove);
     window.addEventListener('resize', handleResize);
@@ -128,7 +128,7 @@ window.jumpToBookmark = jumpToBookmark;
 window.setFocus = setFocus;
 window.clearFocus = clearFocus;
 window.zoomIn = zoomIn;
-window.handleKeyDown = (event) => handleKeyDown(event, pdfDoc);
+window.handleKeyDown = handleKeyDown;
 window.editBookmark = editBookmark;
 window.deleteBookmark = deleteBookmark;
 window.showPrevPage = showPrevPage;
