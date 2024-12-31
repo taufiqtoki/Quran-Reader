@@ -28,17 +28,27 @@ const debounce = (func, delay) => {
 const handleKeyDown = (event, pdfDoc) => {
     if (document.getElementById('bookmark-modal').classList.contains('hidden')) {
         debounce(() => {
-            switch (event.key) {
-                case 'ArrowLeft': showPrevPage(); break;
-                case 'ArrowRight': showNextPage(); break;
-                case 'ArrowUp': case 'PageUp': showPrevPage(); break;
-                case 'ArrowDown': case 'PageDown': showNextPage(); break;
-                case 'Home': pageNum = 1; queueRenderPage(pageNum); break;
-                case 'End': pageNum = pdfDoc.numPages; queueRenderPage(pageNum); break;
-                case 'Enter': case ' ': showNextPage(); break;
-                case 'f': toggleFullScreen(); break;
-                case 'b': addBookmarkModal(); break;
-                default: break;
+            if (event.ctrlKey && event.key === 'b') {
+                addBookmarkModal();
+            } else if (event.ctrlKey && event.key === ' ') {
+                addBookmarkModal();
+            } else if (event.ctrlKey && event.key === 'Enter') {
+                toggleFullScreen();
+            } else if (event.key === '*') {
+                addBookmarkModal();
+            } else {
+                switch (event.key) {
+                    case 'ArrowLeft': showPrevPage(); break;
+                    case 'ArrowRight': showNextPage(); break;
+                    case 'ArrowUp': case 'PageUp': showPrevPage(); break;
+                    case 'ArrowDown': case 'PageDown': showNextPage(); break;
+                    case 'Home': pageNum = 1; queueRenderPage(pageNum); break;
+                    case 'End': pageNum = pdfDoc.numPages; queueRenderPage(pageNum); break;
+                    case 'Enter': case ' ': showNextPage(); break;
+                    case 'f': toggleFullScreen(); break;
+                    case 'b': addBookmarkModal(); break;
+                    default: break;
+                }
             }
         }, 200); // Adjust the delay as needed
     }
@@ -130,3 +140,5 @@ window.saveBookmark = saveBookmark;
 window.closeModal = closeModal;
 window.updateBookmarkList = updateBookmarkList;
 window.confirmDeleteBookmark = confirmDeleteBookmark;
+window.handleTouchStart = handleTouchStart;
+window.handleTouchMove = handleTouchMove;

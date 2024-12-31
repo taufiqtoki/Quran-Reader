@@ -45,22 +45,6 @@ const updateBookmarkList = () => {
         if (bookmark) { // Add check to skip null values
             const li = document.createElement('li');
             li.className = 'flex justify-between items-center bg-gray-200 px-4 py-2 rounded';
-            li.draggable = true;
-            li.ondragstart = (event) => {
-                event.dataTransfer.setData('text/plain', page);
-            };
-            li.ondragover = (event) => {
-                event.preventDefault();
-            };
-            li.ondrop = (event) => {
-                event.preventDefault();
-                const draggedPage = event.dataTransfer.getData('text/plain');
-                const targetPage = page;
-                const temp = bookmarks[draggedPage];
-                bookmarks[draggedPage] = bookmarks[targetPage];
-                bookmarks[targetPage] = temp;
-                updateBookmarkList();
-            };
             li.innerHTML = `<span class="cursor-pointer" onclick="jumpToBookmark(${page})">${bookmark.name} (Page ${page})</span>
                 <div class="flex space-x-2">
                     <button class="text-blue-500" onclick="editBookmark(${page})"><i class="fas fa-edit"></i></button>
@@ -77,14 +61,22 @@ const jumpToBookmark = (page) => {
     queueRenderPage(pageNum);
 };
 
+const startAutoSaveTimer = () => {
+    clearTimeout(autoSaveTimer);
+    autoSaveTimer = setTimeout(() => {
+        saveBookmark();
+    }, 10000); // 10 seconds
+};
+
 const addBookmarkModal = () => {
     document.getElementById('modal-page-number').value = pageNum;
-    document.getElementById('modal-bookmark-name').value = 'Continue';
+    document.getElementById('modal-bookmark-name').value = bookmarks[pageNum] ? bookmarks[pageNum].name : '';
     const modal = document.getElementById('bookmark-modal');
     modal.classList.remove('hidden');
     modal.removeAttribute('inert');
     document.addEventListener('keydown', handleModalKeyDown);
     document.addEventListener('click', handleModalClick, true);
+    startAutoSaveTimer(); // Start the auto-save timer
 };
 
 const saveBookmark = () => {
@@ -96,6 +88,7 @@ const saveBookmark = () => {
     closeModal();
     updateStarColor();
     showToast('Bookmark saved');
+    clearTimeout(autoSaveTimer); // Clear the auto-save timer
 };
 
 const editBookmark = (page) => {
@@ -113,6 +106,7 @@ const editBookmark = (page) => {
         updateBookmarkList();
         closeModal();
         showToast('Bookmark edited');
+        clearTimeout(autoSaveTimer); // Clear the auto-save timer
     };
     document.getElementById('bookmark-modal').onkeydown = (event) => {
         if (event.key === 'Enter') {
@@ -121,6 +115,7 @@ const editBookmark = (page) => {
             saveButton.click();
         }
     };
+    startAutoSaveTimer(); // Start the auto-save timer
 };
 
 const confirmDeleteBookmark = (page) => {
@@ -145,6 +140,7 @@ const closeModal = () => {
     modal.setAttribute('inert', '');
     document.removeEventListener('keydown', handleModalKeyDown);
     document.removeEventListener('click', handleModalClick, true);
+    clearTimeout(autoSaveTimer); // Clear the auto-save timer
 };
 
 const closeConfirmDeleteModal = () => {
