@@ -13,12 +13,17 @@
 <body class="bg-gray-100 h-screen" onkeydown="handleKeyDown(event)" ontouchstart="handleTouchStart(event)" ontouchmove="handleTouchMove(event)">
   <div class="h-full w-full flex flex-col md:flex-row">
     <!-- Left: Bookmarks -->
-    <aside class="w-full md:w-1/4 bg-gray-100 p-4 shadow-md overflow-y-auto">
+    <aside id="bookmark-section" class="w-full md:w-1/4 bg-gray-100 p-4 shadow-md overflow-y-auto hidden slide-in-left">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-bold">Bookmarks</h2>
         <button id="add-bookmark-modal" class="text-2xl">★</button>
       </div>
       <ul id="bookmark-list" class="space-y-2"></ul>
+      <button id="toggle-bookmarks-sidebar-bottom" class="fixed bottom-5 left-5">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="gold" class="bi bi-star" viewBox="0 0 16 16" width="48" height="48">
+          <path d="M2.866 14.85c-.078.444.36.791.746.593l.39-.197 1.518-.768 1.518.768.39.197c.386.198.824-.149.746-.593l-.287-1.684 1.225-1.194c.33-.322.158-.888-.283-.95l-1.684-.245-.753-1.524a.513.513 0 0 0-.92 0l-.753 1.524-1.684.245c-.441.062-.613.628-.283.95l1.225 1.194-.287 1.684z"/>
+        </svg>
+      </button>
     </aside>
 
     <!-- Middle: PDF Viewer -->
@@ -33,10 +38,15 @@
       <button id="next-page" class="nav-button next">
         <i class="fas fa-arrow-right"></i>
       </button>
+      <button id="show-bookmarks" class="floating-star">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="gold" class="bi bi-star" viewBox="0 0 16 16" width="48" height="48">
+          <path d="M2.866 14.85c-.078.444.36.791.746.593l.39-.197 1.518-.768 1.518.768.39.197c.386.198.824-.149.746-.593l-.287-1.684 1.225-1.194c.33-.322.158-.888-.283-.95l-1.684-.245-.753-1.524a.513.513 0 0 0-.92 0l-.753 1.524-1.684.245c-.441.062-.613.628-.283.95l1.225 1.194-.287 1.684z"/>
+        </svg>
+      </button>
     </main>
 
     <!-- Right: Controls -->
-    <aside class="w-full md:w-1/4 bg-gray-100 p-4 shadow-md">
+    <aside id="control-section" class="w-full md:w-1/4 bg-gray-100 p-4 shadow-md hidden">
       <div class="text-right mb-4">
         <h1 class="text-2xl font-bold">Al Quranul Kareem</h1>
         <p class="text-gray-600">My Favourite Book</p>
@@ -115,48 +125,5 @@
 
   <!-- Toast Container -->
   <div id="toast-container" class="toast-container"></div>
-
-  <script>
-    function handleModalKeyDown(event) {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        saveBookmark();
-      }
-    }
-
-    function handlePageInputKeyDown(event) {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        event.stopPropagation(); // Stop the event from propagating further
-        jumpToPage();
-      }
-    }
-
-    function showToast(message) {
-      const toastContainer = document.getElementById('toast-container');
-      toastContainer.innerHTML = ''; // Clear existing toasts
-      const toast = document.createElement('div');
-      toast.className = 'toast bg-green-500 text-white px-4 py-2 rounded shadow-md';
-      toast.textContent = message;
-      toastContainer.appendChild(toast);
-      setTimeout(() => {
-        toast.classList.add('show');
-        setTimeout(() => {
-          toast.classList.remove('show');
-          setTimeout(() => {
-            toast.remove();
-          }, 500);
-        }, 3000);
-      }, 100);
-    }
-
-    function closeConfirmDeleteModal() {
-      const modal = document.getElementById('confirm-delete-modal');
-      modal.classList.add('hidden');
-      modal.setAttribute('inert', '');
-    }
-
-    window.closeConfirmDeleteModal = closeConfirmDeleteModal;
-  </script>
 </body>
 </html>

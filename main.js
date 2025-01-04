@@ -11,7 +11,7 @@ openDB().then(() => {
     pdfjsLib.getDocument(url).promise.then((pdfDoc_) => {
         pdfDoc = pdfDoc_;
         setPdfDoc(pdfDoc);
-        renderPage(pageNum, scale);
+        renderPage(pageNum, scale); // Render the initial page
     });
 });
 
@@ -78,6 +78,39 @@ const handleResize = () => {
     renderPage(pageNum, scale);
 };
 
+const showToast = (message) => {
+    const toastContainer = document.getElementById('toast-container');
+    toastContainer.innerHTML = ''; // Clear existing toasts
+    const toast = document.createElement('div');
+    toast.className = 'toast bg-green-500 text-white px-4 py-2 rounded shadow-md';
+    toast.textContent = message;
+    toastContainer.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add('show');
+        setTimeout(() => {
+            toast.classList.remove('show');
+            setTimeout(() => {
+                toast.remove();
+            }, 500);
+        }, 3000);
+    }, 100);
+};
+
+const closeConfirmDeleteModal = () => {
+    const modal = document.getElementById('confirm-delete-modal');
+    modal.classList.add('hidden');
+    modal.setAttribute('inert', '');
+};
+
+const toggleBookmarks = () => {
+    const bookmarkSection = document.getElementById('bookmark-section');
+    bookmarkSection.classList.toggle('hidden');
+    bookmarkSection.classList.toggle('slide-in-left');
+};
+
+window.closeConfirmDeleteModal = closeConfirmDeleteModal;
+window.toggleBookmarks = toggleBookmarks;
+
 document.addEventListener('DOMContentLoaded', () => {
     const prevPageBtn = document.getElementById('prev-page-btn');
     const nextPageBtn = document.getElementById('next-page-btn');
@@ -89,6 +122,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const fullscreenBtn = document.getElementById('fullscreen');
     const pageInput = document.getElementById('page-input');
     const pdfViewer = document.querySelector('.pdf-viewer');
+    const showBookmarksBtn = document.getElementById('show-bookmarks');
+    const showControlsBtn = document.getElementById('show-controls');
+    const backButton = document.getElementById('back-button');
+    const toggleBookmarksSidebarBottomBtn = document.getElementById('toggle-bookmarks-sidebar-bottom');
 
     const addEventListenerIfExists = (element, event, handler) => {
         if (element) element.addEventListener(event, handler);
@@ -106,6 +143,15 @@ document.addEventListener('DOMContentLoaded', () => {
     addEventListenerIfExists(zoomInBtn, 'click', zoomIn);
     addEventListenerIfExists(fullscreenBtn, 'click', toggleFullScreen);
     addEventListenerIfExists(pageInput, 'keydown', (event) => { if (event.key === 'Enter') jumpToPage(); });
+    addEventListenerIfExists(showBookmarksBtn, 'click', toggleBookmarks);
+    addEventListenerIfExists(showControlsBtn, 'click', () => {
+        document.getElementById('control-section').classList.toggle('hidden');
+    });
+    addEventListenerIfExists(backButton, 'click', () => {
+        window.history.back();
+    });
+    addEventListenerIfExists(toggleBookmarksSidebarBottomBtn, 'click', toggleBookmarks);
+
     if (pdfViewer) {
         pdfViewer.addEventListener('wheel', handleWheel);
         pdfViewer.addEventListener('mousedown', handleMouseUpDown);
@@ -142,3 +188,5 @@ window.updateBookmarkList = updateBookmarkList;
 window.confirmDeleteBookmark = confirmDeleteBookmark;
 window.handleTouchStart = handleTouchStart;
 window.handleTouchMove = handleTouchMove;
+window.closeConfirmDeleteModal = closeConfirmDeleteModal;
+window.toggleBookmarks = toggleBookmarks;

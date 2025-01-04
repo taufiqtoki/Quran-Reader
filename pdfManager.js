@@ -396,5 +396,10 @@ const zoomIn = () => {
     queueRenderPage(pageNum);
 };
 
+const toggleBookmarks = () => {
+    const bookmarkList = document.getElementById('bookmark-list');
+    bookmarkList.classList.toggle('hidden');
+};
+
 // Ensure all necessary functions are exported
-export { openDB, setPdfDoc, renderPage, queueRenderPage, updateBookmarkList, jumpToBookmark, addBookmarkModal, saveBookmark, editBookmark, confirmDeleteBookmark, deleteBookmark, closeModal, closeConfirmDeleteModal, updateStarColor, jumpToPage, toggleFullScreen, showNextPage, showPrevPage, zoomIn };
+export { openDB, setPdfDoc, renderPage, queueRenderPage, updateBookmarkList, jumpToBookmark, addBookmarkModal, saveBookmark, editBookmark, confirmDeleteBookmark, deleteBookmark, closeModal, closeConfirmDeleteModal, updateStarColor, jumpToPage, toggleFullScreen, showNextPage, showPrevPage, zoomIn, toggleBookmarks };
