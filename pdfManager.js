@@ -185,8 +185,10 @@ const handleModalClick = (event) => {
 
 const updateStarColor = () => {
     const addBookmarkButton = document.getElementById('add-bookmark-modal');
+    const addBookmarkButtonTop = document.getElementById('add-bookmark-modal-top');
     const isBookmarked = bookmarks.hasOwnProperty(pageNum);
     addBookmarkButton.style.color = isBookmarked ? 'blue' : 'black';
+    addBookmarkButtonTop.style.color = isBookmarked ? 'blue' : 'black';
 };
 
 const setPdfDoc = (doc) => {

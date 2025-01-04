@@ -1,4 +1,4 @@
-import { openDB, setPdfDoc, renderPage, queueRenderPage, showPrevPage, showNextPage, jumpToPage, zoomIn, updateBookmarkList, addBookmarkModal, saveBookmark, closeModal, jumpToBookmark, editBookmark, deleteBookmark, confirmDeleteBookmark, toggleFullScreen } from './pdfManager.js';
+import { openDB, setPdfDoc, renderPage, queueRenderPage, showPrevPage, showNextPage, jumpToPage, zoomIn, updateBookmarkList, addBookmarkModal, saveBookmark, closeModal, jumpToBookmark, editBookmark, deleteBookmark, confirmDeleteBookmark, toggleFullScreen, updateStarColor } from './pdfManager.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
@@ -116,6 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const nextPageBtn = document.getElementById('next-page-btn');
     const goToPageBtn = document.getElementById('go-to-page');
     const addBookmarkModalBtn = document.getElementById('add-bookmark-modal');
+    const addBookmarkModalTopBtn = document.getElementById('add-bookmark-modal-top');
     const saveBookmarkBtn = document.getElementById('save-bookmark');
     const cancelModalBtn = document.getElementById('cancel-modal');
     const zoomInBtn = document.getElementById('zoom-in');
@@ -138,6 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pageInput.value = '';
     });
     addEventListenerIfExists(addBookmarkModalBtn, 'click', addBookmarkModal);
+    addEventListenerIfExists(addBookmarkModalTopBtn, 'click', addBookmarkModal);
     addEventListenerIfExists(saveBookmarkBtn, 'click', saveBookmark);
     addEventListenerIfExists(cancelModalBtn, 'click', closeModal);
     addEventListenerIfExists(zoomInBtn, 'click', zoomIn);
@@ -190,3 +192,4 @@ window.handleTouchStart = handleTouchStart;
 window.handleTouchMove = handleTouchMove;
 window.closeConfirmDeleteModal = closeConfirmDeleteModal;
 window.toggleBookmarks = toggleBookmarks;
+window.updateStarColor = updateStarColor;

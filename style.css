@@ -133,6 +133,15 @@ body, html { user-select: none; height: 100%; margin: 0; }
   #confirm-delete-modal {
     z-index: 1100; /* Ensure the confirmation modal is above the bookmarks sidebar */
   }
+
+  #add-bookmark-modal-top {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1500;
+    display: block;
+    margin: 10px; /* Add 10px margin */
+  }
 }
 
 /* Always show sections on landscape screens */
@@ -146,6 +155,10 @@ body, html { user-select: none; height: 100%; margin: 0; }
 
   .floating-star {
     display: none; /* Hide the star button in landscape mode */
+  }
+
+  #add-bookmark-modal-top {
+    display: none;
   }
 }
 
