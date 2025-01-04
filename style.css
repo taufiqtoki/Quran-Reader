@@ -157,6 +157,10 @@ body, html { user-select: none; height: 100%; margin: 0; }
     display: none; /* Hide the star button in landscape mode */
   }
 
+  #toggle-bookmarks-sidebar-bottom {
+    display: none; /* Hide the star button in landscape mode */
+  }
+
   #add-bookmark-modal-top {
     display: none;
   }
