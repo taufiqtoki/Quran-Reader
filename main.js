@@ -44,7 +44,7 @@ const handleKeyDown = (event) => {
                     case 'ArrowDown': case 'PageDown': showNextPage(); break;
                     case 'Home': pageNum = 1; queueRenderPage(pageNum); break;
                     case 'End': pageNum = pdfDoc.numPages; queueRenderPage(pageNum); break;
-                    case 'Enter': case ' ': showNextPage(); break;
+                    case 'Enter': case ' ': if (focusedElement !== 'input') showNextPage(); break;
                     case 'f': toggleFullScreen(); break;
                     case 'b': addBookmarkModal(); break;
                     default: break;
@@ -80,6 +80,7 @@ const handleResize = () => {
 
 const handlePageInputKeyDown = (event) => {
     if (event.key === 'Enter') {
+        event.preventDefault();
         jumpToPage();
     }
 };
@@ -150,7 +151,9 @@ document.addEventListener('DOMContentLoaded', () => {
     addEventListenerIfExists(cancelModalBtn, 'click', closeModal);
     addEventListenerIfExists(zoomInBtn, 'click', zoomIn);
     addEventListenerIfExists(fullscreenBtn, 'click', toggleFullScreen);
-    addEventListenerIfExists(pageInput, 'keydown', (event) => { if (event.key === 'Enter') jumpToPage(); });
+    addEventListenerIfExists(pageInput, 'keydown', handlePageInputKeyDown);
+    addEventListenerIfExists(pageInput, 'focus', () => setFocus('input'));
+    addEventListenerIfExists(pageInput, 'blur', () => clearFocus('input'));
     addEventListenerIfExists(showBookmarksBtn, 'click', toggleBookmarks);
     addEventListenerIfExists(showControlsBtn, 'click', () => {
         document.getElementById('control-section').classList.toggle('hidden');
