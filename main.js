@@ -78,6 +78,12 @@ const handleResize = () => {
     renderPage(pageNum, scale);
 };
 
+const handlePageInputKeyDown = (event) => {
+    if (event.key === 'Enter') {
+        jumpToPage();
+    }
+};
+
 const showToast = (message) => {
     const toastContainer = document.getElementById('toast-container');
     toastContainer.innerHTML = ''; // Clear existing toasts
@@ -193,3 +199,4 @@ window.handleTouchMove = handleTouchMove;
 window.closeConfirmDeleteModal = closeConfirmDeleteModal;
 window.toggleBookmarks = toggleBookmarks;
 window.updateStarColor = updateStarColor;
+window.handlePageInputKeyDown = handlePageInputKeyDown;
