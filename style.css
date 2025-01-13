@@ -189,3 +189,206 @@ body, html { user-select: none; height: 100%; margin: 0; }
 #bookmark-modal {
   z-index: 1100; /* Ensure the add/edit modal is above the bookmarks sidebar */
 }
+
+/* Control section button styles */
+#control-section button {
+  height: 7vh; /* Set the height to 7% of the viewport height */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 1rem; /* Reduce the margin between buttons */
+}
+
+/* Adjust input box width */
+input[type="number"], input[type="text"] {
+  width: calc(100% - 80px); /* Adjust width to match the buttons */
+  max-width: 200px; /* Set a maximum width */
+  margin-right: 0; /* Remove margin */
+}
+
+/* Responsive styles for left and right sections */
+@media (max-width: 768px) {
+  #bookmark-section, #control-section {
+    width: 100%;
+    position: relative;
+    z-index: 1000;
+  }
+
+  .pdf-viewer {
+    width: 100%;
+    height: calc(100% - 50px); /* Adjust height to accommodate bottom buttons */
+  }
+
+  #bottom-buttons {
+    display: flex;
+  }
+}
+
+@media (min-width: 769px) {
+  #bookmark-section, #control-section {
+    width: 25%;
+  }
+
+  .pdf-viewer {
+    width: 75%;
+  }
+}
+
+/* Landscape mode styles */
+@media (min-width: 1px) and (min-aspect-ratio: 1/1) {
+  #bookmark-section, #control-section {
+    width: 30%;
+    position: relative;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .pdf-viewer {
+    width: 40%;
+    height: 100%; /* Adjust height to accommodate bottom buttons */
+  }
+
+  #bottom-buttons {
+    display: none;
+  }
+
+  .floating-star {
+    display: none; /* Hide the star button in landscape mode */
+  }
+
+  #toggle-bookmarks-sidebar-bottom {
+    display: none; /* Hide the star button in landscape mode */
+  }
+
+  #add-bookmark-modal-top {
+    display: none;
+  }
+}
+
+/* Portrait mode styles */
+@media (max-width: 1px) and (min-aspect-ratio: 1/1) {
+  #bookmark-section {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.8); /* 20% transparency */
+    z-index: 1000; /* Ensure it comes above the PDF viewer */
+    transition: transform 0.5s ease-in-out;
+  }
+
+  .pdf-viewer {
+    z-index: 900; /* Ensure the PDF viewer is below the bookmarks sidebar */
+  }
+
+  .floating-star {
+    display: block; /* Ensure the star button is shown in portrait mode */
+  }
+
+  .toast-container {
+    z-index: 1100; /* Ensure the toasts are above the bookmarks sidebar */
+  }
+
+  #confirm-delete-modal {
+    z-index: 1100; /* Ensure the confirmation modal is above the bookmarks sidebar */
+  }
+
+  #add-bookmark-modal-top {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 1500;
+    display: block;
+    margin: 10px; /* Add 10px margin */
+  }
+}
+
+/* Ensure sections do not overlap */
+#bookmark-section, #control-section {
+  flex-shrink: 0;
+}
+
+.pdf-viewer {
+  flex-grow: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+#page-input-container {
+  position: relative;
+  width: 100%;
+  max-width: 400px; /* Adjust the max-width as needed */
+  min-width: 300px; /* Ensure a minimum width */
+  display: flex; /* Use flexbox to align input and button */
+}
+
+#page-input {
+  height: 7vh; /* Match the height of other buttons */
+  flex: 0 0 70%; /* Take up 70% of the container width */
+  border-radius: 0.375rem 0 0 0.375rem; /* Rounded corners on the left */
+  background: transparent;
+  color: #334155; /* Tailwind's slate-700 */
+  font-size: 0.875rem; /* Tailwind's text-sm */
+  border: 2px solid #e2e8f0; /* Tailwind's slate-200, increased border width */
+  padding-left: 0.75rem; /* Tailwind's pl-3 */
+  padding-top: 0.5rem; /* Tailwind's py-2 */
+  padding-bottom: 0.5rem; /* Tailwind's py-2 */
+  margin: 0; /* Remove margin */
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+#page-input::placeholder {
+  color: #94a3b8; /* Tailwind's slate-400 */
+}
+
+#page-input:focus {
+  outline: none;
+  border-color: #cbd5e1; /* Tailwind's slate-400 */
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); /* Tailwind's shadow-sm */
+}
+
+#page-input:hover {
+  border-color: #cbd5e1; /* Tailwind's slate-300 */
+}
+
+#go-to-page {
+  flex: 0 0 30%; /* Take up 30% of the container width */
+  height: 7vh; /* Match the height of the input box */
+  border-radius: 0 0.375rem 0.375rem 0; /* Rounded corners on the right */
+  background-color: #fff; /* White background */
+  padding-top: 0.25rem; /* Tailwind's py-1 */
+  padding-bottom: 0.25rem; /* Tailwind's py-1 */
+  padding-left: 0.625rem; /* Tailwind's px-2.5 */
+  padding-right: 0.625rem; /* Tailwind's px-2.5 */
+  border: 2px solid #10b981; /* Green border */
+  border-left: none; /* Remove left border to avoid double border */
+  text-align: center;
+  font-size: 0.875rem; /* Tailwind's text-sm */
+  color: #10b981; /* Green text color */
+  margin: 0; /* Remove margin */
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); /* Tailwind's shadow-sm */
+}
+
+#go-to-page:hover,
+#go-to-page:focus {
+  background-color: #f0fdf4; /* Light green background on hover */
+  box-shadow: none;
+}
+
+#go-to-page:active {
+  background-color: #d1fae5; /* Darker green background on active */
+  box-shadow: none;
+}
+
+#go-to-page:disabled {
+  pointer-events: none;
+  opacity: 0.5;
+  box-shadow: none;
+}
+

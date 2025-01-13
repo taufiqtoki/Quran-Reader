@@ -76,6 +76,7 @@ const handleMouseUpDown = (event) => { if (event.button === 4) showPrevPage(); e
 
 const handleResize = () => {
     renderPage(pageNum, scale);
+    localStorage.setItem('lastPage', pageNum); // Save the current page number to localStorage
 };
 
 const handlePageInputKeyDown = (event) => {

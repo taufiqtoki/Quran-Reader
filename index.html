@@ -47,33 +47,31 @@
     </main>
 
     <!-- Right: Controls -->
-    <aside id="control-section" class="w-full md:w-1/4 bg-gray-100 p-4 shadow-md hidden">
-      <div class="text-right mb-4">
+    <aside id="control-section" class="w-full bg-gray-100 p-4 shadow-md hidden">
+      <div class="text-right mb-2">
         <h1 class="text-2xl font-bold">Al Quranul Kareem</h1>
         <p class="text-gray-600">My Favourite Book</p>
       </div>
-      <div class="space-y-4">
+      <div class="space-y-2">
         <button id="prev-page-btn" class="bg-blue-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
           <i class="fas fa-arrow-left mr-2"></i> Previous Page
         </button>
         <button id="next-page-btn" class="bg-blue-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
           <i class="fas fa-arrow-right mr-2"></i> Next Page
         </button>
-        <div class="flex space-x-2">
-          <button id="zoom-in" class="bg-purple-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
-            <i class="fas fa-search-plus mr-2"></i> Crisp Page
-          </button>
-        </div>
+        <button id="zoom-in" class="bg-purple-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
+          <i class="fas fa-search-plus mr-2"></i> Crisp Page
+        </button>
         <button id="fullscreen" class="bg-yellow-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
           <i class="fas fa-expand mr-2"></i> Full Screen
         </button>
-      </div>
-      <div class="mt-6 text-center space-y-4">
-        <div class="flex items-center space-x-2">
-          <input type="number" id="page-input" placeholder="Page #" class="border px-2 py-1 rounded flex-1" onclick="setFocus('input')" onblur="clearFocus('input')" onkeydown="handlePageInputKeyDown(event)">
-          <button id="go-to-page" class="bg-green-500 text-white px-4 py-2 rounded flex items-center justify-center">
-            <i class="fas fa-search mr-2"></i> Go
-          </button>
+        <div class="w-full">
+          <div class="relative" id="page-input-container">
+            <input type="number" id="page-input" placeholder="Page #" class="w-70% bg-transparent placeholder:text-slate-400 text-slate-700 text-sm border border-slate-200 rounded-md pl-3 pr-16 py-2 transition duration-300 ease focus:outline-none focus:border-slate-400 hover:border-slate-300 shadow-sm focus:shadow" onkeydown="handlePageInputKeyDown(event)">
+            <button id="go-to-page" type="button" class="w-30% absolute top-1/2 right-0 transform -translate-y-1/2 rounded bg-white py-1 px-2.5 border border-green-500 text-center text-sm text-green-500 transition-all shadow-sm hover:shadow focus:bg-f0fdf4 focus:shadow-none active:bg-d1fae5 hover:bg-f0fdf4 active:shadow-none disabled:pointer-events-none disabled:opacity-50 disabled:shadow-none" onclick="jumpToPage()">
+              Go
+            </button>
+          </div>
         </div>
         <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
           <div id="page-progress" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>

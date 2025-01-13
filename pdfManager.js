@@ -4,6 +4,12 @@ const canvas = document.getElementById('pdf-render'), ctx = canvas.getContext('2
 let renderTask = null, bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || {}, pageNum = localStorage.getItem('lastPage') ? parseInt(localStorage.getItem('lastPage'), 10) : 1;
 let autoSaveTimer;
 
+let totalPrefetchedPages = 0;
+let totalCachedPages = 0;
+let totalRenderedPages = 0;
+
+const MAX_CACHED_PAGES = 50; // Limit the number of cached pages
+
 const openDB = () => new Promise((resolve, reject) => {
     const request = indexedDB.open(dbName, 1);
     request.onupgradeneeded = (event) => {
@@ -29,6 +35,19 @@ const cachePage = (page, dataUrl) => {
     const transaction = db.transaction([storeName], 'readwrite');
     const store = transaction.objectStore(storeName);
     store.put({ page, dataUrl });
+    totalCachedPages++;
+
+    // Check if the number of cached pages exceeds the limit
+    if (totalCachedPages > MAX_CACHED_PAGES) {
+        // Delete the oldest cached page
+        store.openCursor().onsuccess = (event) => {
+            const cursor = event.target.result;
+            if (cursor) {
+                store.delete(cursor.key);
+                totalCachedPages--;
+            }
+        };
+    }
 };
 
 const deleteCachedPage = (page) => {
@@ -195,7 +214,7 @@ const setPdfDoc = (doc) => {
     pdfDoc = doc;
 };
 
-const prefetchPages = (currentPage, numPagesToPrefetch) => {
+const prefetchPages = (currentPage, numPagesToPrefetch = 2) => {
     const startPage = currentPage + 1;
     const endPage = Math.min(currentPage + numPagesToPrefetch, pdfDoc.numPages);
 
@@ -216,6 +235,7 @@ const prefetchPages = (currentPage, numPagesToPrefetch) => {
                 cachePage(page.pageNumber, canvas.toDataURL());
             });
         });
+        totalPrefetchedPages++;
     }
 };
 
@@ -248,10 +268,10 @@ const renderPage = (num, scale) => {
                 renderPage(pageNumPending, scale);
                 pageNumPending = null;
             }
-            deleteCachedPage(num);
             cachePage(num, canvas.toDataURL());
+            totalRenderedPages++;
             updatePageProgress(num);
-            prefetchPages(num, 5); // Prefetch the next 5 pages
+            prefetchPages(num, 2); // Prefetch the next 2 pages
         }).catch((error) => {
             if (error.name === 'RenderingCancelledException') {
                 pageIsRendering = false;
@@ -262,12 +282,14 @@ const renderPage = (num, scale) => {
             }
         });
         document.getElementById('page-info').textContent = `Page ${num} of ${pdfDoc.numPages}`;
-        localStorage.setItem('lastPage', num);
+        localStorage.setItem('lastPage', num); // Update the last read page in local storage
         updateStarColor();
     });
 };
 
 const queueRenderPage = (num) => {
+    pageNum = num; // Update the current page number
+    localStorage.setItem('lastPage', pageNum); // Store the current page number in local storage
     if (pageIsRendering) {
         pageNumPending = num;
     } else {
@@ -350,11 +372,21 @@ document.addEventListener('DOMContentLoaded', () => {
     openDB().then(() => {
         pdfjsLib.getDocument('./assets/book.pdf').promise.then((doc) => { // Update the path to your PDF file
             setPdfDoc(doc);
-            queueRenderPage(pageNum);
+            queueRenderPage(pageNum); // Ensure the correct page is rendered
             updateBookmarkList();
         }).catch((error) => {
             console.error('Error loading PDF:', error);
         });
+    });
+
+    window.addEventListener('resize', () => {
+        pageNum = parseInt(localStorage.getItem('lastPage'), 10) || pageNum; // Ensure the correct page is rendered when the screen size changes
+        queueRenderPage(pageNum);
+    });
+
+    window.addEventListener('orientationchange', () => {
+        pageNum = parseInt(localStorage.getItem('lastPage'), 10) || pageNum; // Ensure the correct page is rendered when the orientation changes
+        queueRenderPage(pageNum);
     });
 });
 
