@@ -1,0 +1,18 @@
+echo "# Quran-Reader" >> README.md
+git init
+git add README.md
+git commit -m "first commit"
+git branch -M main
+git remote add origin https://github.com/taufiqtoki/Quran-Reader.git
+git push -u origin main
+
+
+
+
+bookmarks: last added bookmarks show in last. add auto 10 second timer for bookmark auto save
+zoom functioanalities with icons takes nore space
+page-info progress branch
+transparent next and Previous button on pdf viewer
+i didnt ask you to remove next Previous button which was earlier, i wanted new transparent buttons on pdf pages
+
+do the part of pdfmanager.js
