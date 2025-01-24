@@ -399,21 +399,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 const jumpToPage = () => {
     const pageInput = document.getElementById('page-input');
-    if (!pageInput) {
-        console.error('Page input element not found');
-        return;
-    }
     const page = parseInt(pageInput.value, 10);
     if (isNaN(page) || page < 1 || page > pdfDoc.numPages) {
-        // Silently fail without logging an error
-        return;
+        return; // Silently fail without logging an error
     }
-    if (!pdfDoc) {
-        console.error('PDF document not loaded yet');
-        return;
-    }
-    const loadingElement = document.getElementById('loading');
-    if (loadingElement) loadingElement.style.display = 'flex';
     pageNum = page;
     queueRenderPage(pageNum);
     pageInput.value = ''; // Clear the textbox
