@@ -37,12 +37,20 @@ body, html { user-select: none; height: 100%; margin: 0; }
   padding: 10px;
   cursor: pointer;
   z-index: 1000;
+  height: 7vh; /* Adjust height to 7% of the viewport height */
+  width: 7vh; /* Ensure buttons are square */
 }
+
 .pdf-viewer .nav-button.prev {
   left: 10px;
 }
 .pdf-viewer .nav-button.next {
   right: 10px;
+}
+
+.page-input {
+  width: 100%;
+  height: 7vh; /* Adjust height to 7% of the viewport height */
 }
 
 #page-progress {
@@ -58,7 +66,7 @@ body, html { user-select: none; height: 100%; margin: 0; }
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 5%;
+  height: 7%;
   gap: 1rem;
 }
 
@@ -66,6 +74,8 @@ body, html { user-select: none; height: 100%; margin: 0; }
   background: none;
   border: none;
   cursor: pointer;
+  height: 7vh; /* Adjust height to 7% of the viewport height */
+  width: 7vh; /* Ensure buttons are square */
 }
 
 #bottom-buttons .text-gold-500 {
@@ -80,6 +90,15 @@ body, html { user-select: none; height: 100%; margin: 0; }
   width: 48px;
   height: 48px;
   fill: gold;
+}
+
+#prev-page-btn, #next-page-btn, #zoom-in, #fullscreen, #page-input {
+  height: 7vh; /* Adjust height to 7% of the viewport height */
+  width: 100%; /* Ensure buttons take full width */
+}
+
+#go-to-page {
+  height: 7vh; /* Adjust height to 7% of the viewport height */
 }
 
 .floating-star {
@@ -155,6 +174,13 @@ body, html { user-select: none; height: 100%; margin: 0; }
     z-index: 1000;
     display: block; /* Ensure it is visible in portrait mode */
   }
+
+  #three-dash-button {
+    display: block; /* Show the three-dash button in portrait mode */
+    position: fixed; /* Changed to fixed to ensure it stays on top */
+  bottom: 10px;
+  right: 10px;
+  }
 }
 
 /* Landscape mode styles */
@@ -176,6 +202,10 @@ body, html { user-select: none; height: 100%; margin: 0; }
 
   #add-bookmark-modal-top {
     display: none;
+  }
+
+  #three-dash-button {
+    display: none; /* Hide the three-dash button in landscape mode */
   }
 }
 

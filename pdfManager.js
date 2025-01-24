@@ -10,6 +10,8 @@ let totalRenderedPages = 0;
 
 const MAX_CACHED_PAGES = 50; // Limit the number of cached pages
 
+let xDown = null, yDown = null; // Add these variables at the top of the file
+
 const openDB = () => new Promise((resolve, reject) => {
     const request = indexedDB.open(dbName, 1);
     request.onupgradeneeded = (event) => {

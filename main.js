@@ -38,6 +38,12 @@ const handleKeyDown = (event) => {
                 toggleFullScreen();
             } else if (event.key === '*') {
                 addBookmarkModal();
+            } else if (event.key === '-' && event.repeat && event.getModifierState('Shift')) {
+                const controlSection = document.getElementById('control-section');
+                controlSection.classList.toggle('hidden');
+                controlSection.style.backgroundColor = controlSection.classList.contains('hidden') ? '' : 'rgba(0, 0, 0, 0.8)';
+                controlSection.style.position = 'absolute';
+                controlSection.style.zIndex = '10'; // Ensure it appears over the PDF viewer
             } else {
                 switch (event.key) {
                     case 'ArrowLeft': showPrevPage(); break;
@@ -207,6 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
     addEventListenerIfExists(toggleBookmarksSidebarBottomBtn, 'click', toggleBookmarks);
 
     if (pdfViewer) {
+        pdfViewer.style.zIndex = '1'; // Set z-index to a low value
         pdfViewer.addEventListener('wheel', handleWheel);
         pdfViewer.addEventListener('mousedown', handleMouseUpDown);
         pdfViewer.ondblclick = toggleFullScreen;

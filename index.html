@@ -20,9 +20,7 @@
       </div>
       <ul id="bookmark-list" class="space-y-2"></ul>
       <button id="toggle-bookmarks-sidebar-bottom" class="fixed bottom-5 left-5">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="gold" class="bi bi-star" viewBox="0 0 16 16" width="48" height="48">
-          <path d="M2.866 14.85c-.078.444.36.791.746.593l.39-.197 1.518-.768 1.518.768.39.197c.386.198.824-.149.746-.593l-.287-1.684 1.225-1.194c.33-.322.158-.888-.283-.95l-1.684-.245-.753-1.524a.513.513 0 0 0-.92 0l-.753 1.524-1.684.245c-.441.062-.613.628-.283.95l1.225 1.194-.287 1.684z"/>
-        </svg>
+        <img src="./assets/star.svg" width="48" height="48" alt="Star Button" style="filter: invert(48%) sepia(100%) saturate(1000%) hue-rotate(1deg) brightness(100%) contrast(100%);">
       </button>
     </aside>
 
@@ -39,11 +37,15 @@
         <i class="fas fa-arrow-right"></i>
       </button>
       <button id="show-bookmarks" class="floating-star">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="gold" class="bi bi-star" viewBox="0 0 16 16" width="48" height="48">
-          <path d="M2.866 14.85c-.078.444.36.791.746.593l.39-.197 1.518-.768 1.518.768.39.197c.386.198.824-.149.746-.593l-.287-1.684 1.225-1.194c.33-.322.158-.888-.283-.95l-1.684-.245-.753-1.524a.513.513 0 0 0-.92 0l-.753 1.524-1.684.245c-.441.062-.613.628-.283.95l1.225 1.194-.287 1.684z"/>
-        </svg>
+        <img src="./assets/star.svg" width="48" height="48" alt="Star Button" style="filter: invert(48%) sepia(100%) saturate(1000%) hue-rotate(1deg) brightness(100%) contrast(100%);">
       </button>
-      <div id="page-info" class="text-lg p-4 text-gray-700 md:hidden" style="background: white;"></div>
+      <button id="three-dash-button" class="fixed bottom-5 right-5 hidden">
+        <img src="./assets/three-dash.svg" width="48" height="48" alt="Three Dash Button" style="filter: invert(33%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(50%) contrast(100%);">
+      </button>
+      <button id="add-bookmark-modal-top" class="fixed text-2xl top-5 left-5">
+        ★
+      </button>
+      <div id="page-info" class="text-lg p-4 text-gray-700 hidden" style="background: white;"></div>
     </main>
 
     <!-- Right: Controls -->
@@ -53,7 +55,7 @@
         <p class="text-gray-600">My Favourite Book</p>
       </div>
       <div class="space-y-2">
-        <button id="prev-page-btn" class="bg-blue-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
+        <button id="prev-page-btn" class="bg-blue-500 text-white px-4 rounded w-full flex items-center justify-center">
           <i class="fas fa-arrow-left mr-2"></i> Previous Page
         </button>
         <button id="next-page-btn" class="bg-blue-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
@@ -66,8 +68,8 @@
           <i class="fas fa-expand mr-2"></i> Full Screen
         </button>
         <div class="flex w-full items-center justify-center">   
-          <input type="number" id="page-input" placeholder="Page #" class="left-0 h-11 w-full p-4 ps-10 text-sm text-gray-1100 border border-gray-500 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" onkeydown="handlePageInputKeyDown(event)" required />
-          <button type="button" id="go-to-page" class="right-2 m-4 mr-2 text-white absolute bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 py-2 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800" onclick="jumpToPage()">Go</button>
+          <input type="number" id="page-input" placeholder="Page #" class="left-0 w-full p-4 ps-10 text-sm text-gray-1100 border border-gray-500 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" onkeydown="handlePageInputKeyDown(event)" required />
+          <button type="button" id="go-to-page" class="right-2 mr-2 text-center items-center justify-center text-white absolute bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800" onclick="jumpToPage()">Go</button>
         </div>
         <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 items-center justify-center text-center">
           <div id="page-progress" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
@@ -85,7 +87,7 @@
       <div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
         <button type="button" class="absolute top-3 right-2.5 text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" onclick="closeModal()">
           <svg aria-hidden="true" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-            <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+            <path d="M10 20a1 1 0 0 1-1.414-1.414L11.414 10l-4.828-4.828A1 1 0 0 1 7.586 3.172L12 7.586l4.828-4.828A1 1 0 0 1 18.414 5.172L14 9.586l4.828 4.828A1 1 0 0 1 17.414 16.828L12 11.414l-4.828 4.828A1 1 0 0 1 10 20z"/>
           </svg>
           <span class="sr-only">Close modal</span>
         </button>
