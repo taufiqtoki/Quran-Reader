@@ -272,6 +272,10 @@ const renderPage = (num, scale) => {
             totalRenderedPages++;
             updatePageProgress(num);
             prefetchPages(num, 2); // Prefetch the next 2 pages
+            document.getElementById('page-info').textContent = `Page ${num} of ${pdfDoc.numPages}`;
+            document.getElementById('page-info-controls').textContent = `Page ${num} of ${pdfDoc.numPages}`;
+            localStorage.setItem('lastPage', num); // Update the last read page in local storage
+            updateStarColor();
         }).catch((error) => {
             if (error.name === 'RenderingCancelledException') {
                 pageIsRendering = false;
@@ -388,6 +392,9 @@ document.addEventListener('DOMContentLoaded', () => {
         pageNum = parseInt(localStorage.getItem('lastPage'), 10) || pageNum; // Ensure the correct page is rendered when the orientation changes
         queueRenderPage(pageNum);
     });
+
+    document.addEventListener('touchstart', handleTouchStart, false);
+    document.addEventListener('touchmove', handleTouchMove, false);
 });
 
 const jumpToPage = () => {
@@ -443,6 +450,24 @@ const zoomIn = () => {
 const toggleBookmarks = () => {
     const bookmarkList = document.getElementById('bookmark-list');
     bookmarkList.classList.toggle('hidden');
+};
+
+const handleTouchStart = (evt) => {
+    const firstTouch = evt.touches[0];
+    xDown = firstTouch.clientX;
+    yDown = firstTouch.clientY;
+};
+
+const handleTouchMove = (evt) => {
+    if (!xDown || !yDown) return;
+    const xUp = evt.touches[0].clientX, yUp = evt.touches[0].clientY;
+    const xDiff = xDown - xUp, yDiff = yDown - yUp;
+    if (Math.abs(xDiff) > Math.abs(yDiff)) {
+        if (xDiff > 0) showPrevPage(); else showNextPage();
+    } else {
+        if (yDiff > 0) showNextPage(); else showPrevPage();
+    }
+    xDown = null; yDown = null;
 };
 
 // Ensure all necessary functions are exported

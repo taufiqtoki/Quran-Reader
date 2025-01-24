@@ -65,7 +65,9 @@ const handleTouchMove = (evt) => {
     const xUp = evt.touches[0].clientX, yUp = evt.touches[0].clientY;
     const xDiff = xDown - xUp, yDiff = yDown - yUp;
     if (Math.abs(xDiff) > Math.abs(yDiff)) {
-        if (xDiff > 0) showNextPage(); else showPrevPage();
+        if (xDiff > 0) showPrevPage(); else showNextPage();
+    } else {
+        if (yDiff > 0) showNextPage(); else showPrevPage();
     }
     xDown = null; yDown = null;
 };

@@ -142,6 +142,19 @@ body, html { user-select: none; height: 100%; margin: 0; }
     display: block;
     margin: 10px; /* Add 10px margin */
   }
+
+  #page-info {
+    position: absolute;
+    bottom: 0;
+    width: 80%;
+    height: 3%;
+    background: white;
+    text-align: center;
+    line-height: 3%;
+    color: black;
+    z-index: 1000;
+    display: block; /* Ensure it is visible in portrait mode */
+  }
 }
 
 /* Always show sections on landscape screens */
@@ -163,6 +176,8 @@ body, html { user-select: none; height: 100%; margin: 0; }
 
   #add-bookmark-modal-top {
     display: none;
+  }
+
   }
 }
 
@@ -199,15 +214,6 @@ body, html { user-select: none; height: 100%; margin: 0; }
   margin-bottom: 1rem; /* Reduce the margin between buttons */
 }
 
-#page-input {
-  height: 7vh; /* Match the height of the "Go" button */
-  // ...existing code...
-}
-
-#go-to-page {
-  height: 7vh; /* Ensure the height of the "Go" button */
-  // ...existing code...
-}
 
 @media (min-width: 769px) {
   #bookmark-section, #control-section {
