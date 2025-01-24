@@ -118,6 +118,37 @@ const toggleBookmarks = () => {
     bookmarkSection.classList.toggle('slide-in-left');
 };
 
+const lockButton = document.getElementById('lock-button');
+let isLocked = false;
+
+const toggleLock = () => {
+    isLocked = !isLocked;
+    lockButton.classList.toggle('locked', isLocked);
+    if (isLocked) {
+        document.addEventListener('touchmove', preventDefault, { passive: false });
+        document.addEventListener('touchstart', preventDefault, { passive: false });
+        document.addEventListener('wheel', preventDefault, { passive: false });
+        document.addEventListener('mousedown', preventDefault, { passive: false });
+    } else {
+        document.removeEventListener('touchmove', preventDefault);
+        document.removeEventListener('touchstart', preventDefault);
+        document.removeEventListener('wheel', preventDefault);
+        document.removeEventListener('mousedown', preventDefault);
+    }
+};
+
+const preventDefault = (e) => {
+    e.preventDefault();
+};
+
+const showLockButtonIfTouchDevice = () => {
+    if ('ontouchstart' in window || navigator.maxTouchPoints) {
+        lockButton.classList.remove('hidden');
+    }
+};
+
+lockButton.addEventListener('click', toggleLock);
+
 window.closeConfirmDeleteModal = closeConfirmDeleteModal;
 window.toggleBookmarks = toggleBookmarks;
 
@@ -182,6 +213,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (zoomInBtn) {
         zoomInBtn.click();
     }
+
+    showLockButtonIfTouchDevice();
 });
 
 window.jumpToBookmark = jumpToBookmark;
