@@ -214,26 +214,6 @@ body, html { user-select: none; height: 100%; margin: 0; }
   margin-bottom: 1rem; /* Reduce the margin between buttons */
 }
 
-.lock-button {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  background: rgba(255, 255, 255, 0.5);
-  border: none;
-  padding: 10px;
-  cursor: pointer;
-  z-index: 1000;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border-radius: 50%;
-}
-
-.lock-button.locked {
-  background: rgba(0, 0, 0, 0.5);
-  color: white;
-}
-
 @media (min-width: 769px) {
   #bookmark-section, #control-section {
     width: 25%;

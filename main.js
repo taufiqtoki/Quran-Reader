@@ -16,6 +16,8 @@ openDB().then(() => {
 });
 
 let xDown = null, yDown = null, focusedElement = null, debounceTimeout;
+let wakeLock = null;
+let wakeLockInterval = null;
 
 const setFocus = (element) => { focusedElement = element; };
 const clearFocus = (element) => { if (focusedElement === element) focusedElement = null; };
@@ -118,39 +120,46 @@ const toggleBookmarks = () => {
     bookmarkSection.classList.toggle('slide-in-left');
 };
 
-const lockButton = document.getElementById('lock-button');
-let isLocked = false;
+const requestWakeLock = async () => {
+    try {
+        if ('wakeLock' in navigator) {
+            wakeLock = await navigator.wakeLock.request('screen');
+            wakeLock.addEventListener('release', () => {
+                console.log('Screen Wake Lock was released');
+            });
+            console.log('Screen Wake Lock is active');
+        } else {
+            // Fallback for browsers that do not support the Wake Lock API
+            wakeLockInterval = setInterval(() => {
+                window.location.href = window.location.href;
+            }, 180000); // 3 minutes
+        }
+    } catch (err) {
+        console.error(`${err.name}, ${err.message}`);
+    }
+};
 
-const toggleLock = () => {
-    isLocked = !isLocked;
-    lockButton.classList.toggle('locked', isLocked);
-    if (isLocked) {
-        document.addEventListener('touchmove', preventDefault, { passive: false });
-        document.addEventListener('touchstart', preventDefault, { passive: false });
-        document.addEventListener('wheel', preventDefault, { passive: false });
-        document.addEventListener('mousedown', preventDefault, { passive: false });
+const releaseWakeLock = () => {
+    if (wakeLock !== null) {
+        wakeLock.release().then(() => {
+            wakeLock = null;
+        });
+    }
+    if (wakeLockInterval !== null) {
+        clearInterval(wakeLockInterval);
+        wakeLockInterval = null;
+    }
+};
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        requestWakeLock();
     } else {
-        document.removeEventListener('touchmove', preventDefault);
-        document.removeEventListener('touchstart', preventDefault);
-        document.removeEventListener('wheel', preventDefault);
-        document.removeEventListener('mousedown', preventDefault);
+        releaseWakeLock();
     }
-};
+});
 
-const preventDefault = (e) => {
-    e.preventDefault();
-};
-
-const showLockButtonIfTouchDevice = () => {
-    if ('ontouchstart' in window || navigator.maxTouchPoints) {
-        lockButton.classList.remove('hidden');
-    }
-};
-
-lockButton.addEventListener('click', toggleLock);
-
-window.closeConfirmDeleteModal = closeConfirmDeleteModal;
-window.toggleBookmarks = toggleBookmarks;
+window.addEventListener('beforeunload', releaseWakeLock);
 
 document.addEventListener('DOMContentLoaded', () => {
     const prevPageBtn = document.getElementById('prev-page-btn');
@@ -214,7 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
         zoomInBtn.click();
     }
 
-    showLockButtonIfTouchDevice();
+    requestWakeLock();
 });
 
 window.jumpToBookmark = jumpToBookmark;
