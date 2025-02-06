@@ -80,24 +80,6 @@ const toggleControls = () => {
     threeDashButton.style.zIndex = '1500';
 };
 
-const handleTouchStart = (evt) => {
-    const firstTouch = evt.touches[0];
-    xDown = firstTouch.clientX;
-    yDown = firstTouch.clientY;
-};
-
-const handleTouchMove = (evt) => {
-    if (!xDown || !yDown) return;
-    const xUp = evt.touches[0].clientX, yUp = evt.touches[0].clientY;
-    const xDiff = xDown - xUp, yDiff = yDown - yUp;
-    if (Math.abs(xDiff) > Math.abs(yDiff)) {
-        if (xDiff > 0) showNextPage(); else showPrevPage(); // Swiping right to left goes to the next page
-    } else {
-        if (yDiff > 0) showNextPage(); else showPrevPage();
-    }
-    xDown = null; yDown = null;
-};
-
 const handleWheel = (event) => { debounce(() => { if (event.deltaY > 0) showNextPage(); else showPrevPage(); }, 100); };
 
 const handleMouseUpDown = (event) => { if (event.button === 4) showPrevPage(); else if (event.button === 5) showNextPage(); };
@@ -266,8 +248,6 @@ document.addEventListener('DOMContentLoaded', () => {
         pdfViewer.ondblclick = toggleFullScreen;
     }
     document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('touchstart', handleTouchStart);
-    document.addEventListener('touchmove', handleTouchMove);
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', handleOrientationChange);
     document.addEventListener('fullscreenchange', handleResize);
@@ -297,8 +277,6 @@ window.saveBookmark = saveBookmark;
 window.closeModal = closeModal;
 window.updateBookmarkList = updateBookmarkList;
 window.confirmDeleteBookmark = confirmDeleteBookmark;
-window.handleTouchStart = handleTouchStart;
-window.handleTouchMove = handleTouchMove;
 window.closeConfirmDeleteModal = closeConfirmDeleteModal;
 window.toggleBookmarks = toggleBookmarks;
 window.updateStarColor = updateStarColor;
