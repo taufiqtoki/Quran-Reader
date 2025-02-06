@@ -318,6 +318,11 @@ const showToast = (message) => {
     }, 3000);
 };
 
+const resetCanvas = () => {
+    canvas.width = 0;
+    canvas.height = 0;
+};
+
 document.addEventListener('DOMContentLoaded', () => {
     const prevPageBtn = document.getElementById('prev-page');
     const nextPageBtn = document.getElementById('next-page');
@@ -392,6 +397,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     window.addEventListener('orientationchange', () => {
         pageNum = parseInt(localStorage.getItem('lastPage'), 10) || pageNum; // Ensure the correct page is rendered when the orientation changes
+        resetCanvas(); // Reset the canvas
         queueRenderPage(pageNum);
     });
 

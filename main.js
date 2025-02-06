@@ -7,13 +7,17 @@ let pdfDoc = null;
 let pageNum = localStorage.getItem('lastPage') ? parseInt(localStorage.getItem('lastPage'), 10) : 1;
 let scale = window.devicePixelRatio || 1;
 
-openDB().then(() => {
-    pdfjsLib.getDocument(url).promise.then((pdfDoc_) => {
-        pdfDoc = pdfDoc_;
-        setPdfDoc(pdfDoc);
-        renderPage(pageNum, scale); // Render the initial page
+const initializePdf = () => {
+    openDB().then(() => {
+        pdfjsLib.getDocument(url).promise.then((pdfDoc_) => {
+            pdfDoc = pdfDoc_;
+            setPdfDoc(pdfDoc);
+            renderPage(pageNum, scale); // Render the initial page
+        });
     });
-});
+};
+
+initializePdf();
 
 let xDown = null, yDown = null, focusedElement = null, debounceTimeout;
 let wakeLock = null;
@@ -62,6 +66,20 @@ const handleKeyDown = (event) => {
     }
 };
 
+const toggleControls = () => {
+    const controlSection = document.getElementById('control-section');
+    controlSection.classList.toggle('hidden');
+    controlSection.classList.toggle('slide-in-right');
+    controlSection.style.backgroundColor = controlSection.classList.contains('hidden') ? '' : 'rgba(255, 255, 255, 0.8)'; // Same color and transparency as bookmarks sidebar
+    controlSection.style.position = 'absolute';
+    controlSection.style.zIndex = '1000'; // Ensure it appears over the PDF viewer
+
+    // Ensure the three-dash button remains clickable
+    const threeDashButton = document.getElementById('three-dash-button');
+    threeDashButton.style.position = 'fixed';
+    threeDashButton.style.zIndex = '1500';
+};
+
 const handleTouchStart = (evt) => {
     const firstTouch = evt.touches[0];
     xDown = firstTouch.clientX;
@@ -85,8 +103,29 @@ const handleWheel = (event) => { debounce(() => { if (event.deltaY > 0) showNext
 const handleMouseUpDown = (event) => { if (event.button === 4) showPrevPage(); else if (event.button === 5) showNextPage(); };
 
 const handleResize = () => {
-    renderPage(pageNum, scale);
-    localStorage.setItem('lastPage', pageNum); // Save the current page number to localStorage
+    pageNum = parseInt(localStorage.getItem('lastPage'), 10) || pageNum; // Ensure the correct page is rendered when the screen size changes
+    queueRenderPage(pageNum);
+    const pdfViewer = document.querySelector('.pdf-viewer');
+    if (window.matchMedia("(orientation: landscape)").matches) {
+        pdfViewer.style.width = 'calc(100% - 30%)'; // Adjust width to take more space in landscape mode
+    } else {
+        pdfViewer.style.width = '100%'; // Reset width in portrait mode
+    }
+};
+
+const handleOrientationChange = () => {
+    pageNum = parseInt(localStorage.getItem('lastPage'), 10) || pageNum; // Ensure the correct page is rendered when the orientation changes
+    queueRenderPage(pageNum);
+    const controlSection = document.getElementById('control-section');
+    const bookmarkSection = document.getElementById('bookmark-section');
+    const pdfViewer = document.querySelector('.pdf-viewer');
+    if (window.matchMedia("(orientation: landscape)").matches) {
+        controlSection.classList.add('hidden'); // Hide controls section in landscape mode
+        bookmarkSection.classList.add('hidden'); // Hide bookmarks section in landscape mode
+        pdfViewer.style.width = 'calc(100% - 30%)'; // Adjust width to take more space in landscape mode
+    } else {
+        pdfViewer.style.width = '100%'; // Reset width in portrait mode
+    }
 };
 
 const handlePageInputKeyDown = (event) => {
@@ -183,6 +222,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const showControlsBtn = document.getElementById('show-controls');
     const backButton = document.getElementById('back-button');
     const toggleBookmarksSidebarBottomBtn = document.getElementById('toggle-bookmarks-sidebar-bottom');
+    const threeDashButton = document.getElementById('three-dash-button');
+    const threeDashButtonControl = document.getElementById('three-dash-button-control');
 
     const addEventListenerIfExists = (element, event, handler) => {
         if (element) element.addEventListener(event, handler);
@@ -211,6 +252,8 @@ document.addEventListener('DOMContentLoaded', () => {
         window.history.back();
     });
     addEventListenerIfExists(toggleBookmarksSidebarBottomBtn, 'click', toggleBookmarks);
+    addEventListenerIfExists(threeDashButton, 'click', toggleControls);
+    addEventListenerIfExists(threeDashButtonControl, 'click', toggleControls);
 
     if (pdfViewer) {
         pdfViewer.style.zIndex = '1'; // Set z-index to a low value
@@ -222,6 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('touchstart', handleTouchStart);
     document.addEventListener('touchmove', handleTouchMove);
     window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleOrientationChange);
     document.addEventListener('fullscreenchange', handleResize);
     updateBookmarkList();
 
