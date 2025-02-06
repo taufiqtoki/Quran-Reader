@@ -213,7 +213,8 @@ body, html { user-select: none; height: 100%; margin: 0; }
   }
 
   .pdf-viewer {
-    width: calc(100% - 30%); /* Adjust width to take more space in landscape mode */
+    width: 40%; /* Adjust width to 40% in landscape mode */
+    z-index: 900; /* Ensure the PDF viewer is below the bookmarks and control sections */
   }
 
   .floating-star {
