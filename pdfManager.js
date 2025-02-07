@@ -11,6 +11,7 @@ let totalRenderedPages = 0;
 const MAX_CACHED_PAGES = 50; // Limit the number of cached pages
 
 let xDown = null, yDown = null; // Add these variables at the top of the file
+let touchLock = false;  // added flag to prevent double triggering
 
 const openDB = () => new Promise((resolve, reject) => {
     const request = indexedDB.open(dbName, 1);
@@ -455,16 +456,25 @@ const handleTouchStart = (evt) => {
     yDown = firstTouch.clientY;
 };
 
+// Modified handleTouchMove function with lock to avoid double page change
 const handleTouchMove = (evt) => {
-    if (!xDown || !yDown) return;
+    if (!xDown || !yDown || touchLock) return;
+    touchLock = true;
     const xUp = evt.touches[0].clientX, yUp = evt.touches[0].clientY;
     const xDiff = xDown - xUp, yDiff = yDown - yUp;
     if (Math.abs(xDiff) > Math.abs(yDiff)) {
-        if (xDiff > 0) showNextPage(); else showPrevPage(); // Swiping right to left goes to the next page
+        // horizontal swipe: change page
+        if (xDiff > 0) showNextPage();
+        else showPrevPage();
     } else {
-        if (yDiff > 0) showNextPage(); else showPrevPage();
+        // vertical swipe: change page based on swipe direction
+        if (yDiff > 0) showNextPage();
+        else showPrevPage();
     }
-    xDown = null; yDown = null;
+    // Reset touch positions and lock after a short delay
+    xDown = null; 
+    yDown = null;
+    setTimeout(() => { touchLock = false; }, 300);
 };
 
 // Ensure all necessary functions are exported

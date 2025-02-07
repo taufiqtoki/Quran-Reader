@@ -332,3 +332,10 @@ body, html { user-select: none; height: 100%; margin: 0; }
   }
 }
 
+/* ...existing code... */
+
+#bookmark-modal,
+#confirm-delete-modal {
+  z-index: 9999 !important;
+}
+
