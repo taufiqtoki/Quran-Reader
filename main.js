@@ -85,16 +85,18 @@ const handleWheel = (event) => { debounce(() => { if (event.deltaY > 0) showNext
 const handleMouseUpDown = (event) => { if (event.button === 4) showPrevPage(); else if (event.button === 5) showNextPage(); };
 
 const handleResize = () => {
-    pageNum = parseInt(localStorage.getItem('lastPage'), 10) || pageNum; // Ensure the correct page is rendered when the screen size changes
-    queueRenderPage(pageNum);
-    const pdfViewer = document.querySelector('.pdf-viewer');
-    if (window.matchMedia("(orientation: landscape)").matches) {
-        pdfViewer.style.width = '40%'; // Adjust width to 40% in landscape mode
-        pdfViewer.style.zIndex = '900'; // Ensure the PDF viewer is below the bookmarks and control sections
-    } else {
-        pdfViewer.style.width = '100%'; // Reset width in portrait mode
-        pdfViewer.style.zIndex = '1'; // Reset z-index in portrait mode
-    }
+    debounce(() => {
+        pageNum = parseInt(localStorage.getItem('lastPage'), 10) || pageNum; // Ensure the correct page is rendered when the screen size changes
+        queueRenderPage(pageNum);
+        const pdfViewer = document.querySelector('.pdf-viewer');
+        if (window.matchMedia("(orientation: landscape)").matches) {
+            pdfViewer.style.width = '40%'; // Adjust width to 40% in landscape mode
+            pdfViewer.style.zIndex = '900'; // Ensure the PDF viewer is below the bookmarks and control sections
+        } else {
+            pdfViewer.style.width = '100%'; // Reset width in portrait mode
+            pdfViewer.style.zIndex = '1'; // Reset z-index in portrait mode
+        }
+    }, 300);
 };
 
 const handleOrientationChange = () => {

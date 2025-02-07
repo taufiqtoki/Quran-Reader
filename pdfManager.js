@@ -248,6 +248,21 @@ const renderPage = (num, scale) => {
     pageIsRendering = true;
     const loadingElement = document.getElementById('loading');
     if (loadingElement) loadingElement.style.display = 'flex';
+
+    // Attempt to quickly show a cached render if available
+    getCachedPage(num).then(cachedDataUrl => {
+        if (cachedDataUrl) {
+            const img = new Image();
+            img.src = cachedDataUrl;
+            img.onload = () => {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                canvas.style.visibility = 'visible';
+                if (loadingElement) loadingElement.style.display = 'none';
+            };
+        }
+    });
+
     canvas.style.visibility = 'hidden'; // Hide the canvas until rendering is complete
     pdfDoc.getPage(num).then((page) => {
         const viewport = page.getViewport({ scale });
