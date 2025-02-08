@@ -10,7 +10,14 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
   <link href="./style.css" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
   <script src="./main.js" type="module" defer></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+  </script>
   <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function() {
@@ -42,8 +49,13 @@
     <!-- Middle: PDF Viewer -->
     <main class="flex justify-center items-center bg-white shadow-md relative pdf-viewer">
       <canvas id="pdf-render" class="border"></canvas>
-      <div id="loading" class="absolute inset-0 flex justify-center items-center bg-white bg-opacity-75">
+      <div id="loading" class="absolute inset-0 flex flex-col justify-center items-center bg-white bg-opacity-90">
         <div class="spinner"></div>
+        <div class="loading-text">Loading PDF...</div>
+        <div class="loading-progress">
+          <div class="loading-progress-bar" style="width: 0%"></div>
+        </div>
+        <div id="loading-error" class="text-red-500 mt-4 hidden"></div>
       </div>
       <button id="prev-page" class="nav-button prev">
         <i class="fas fa-arrow-left"></i>
@@ -93,9 +105,67 @@
         <button id="three-dash-button-control" class="three-dash-button">
           <img src="./assets/three-dash.svg" width="48" height="48" alt="Three Dash Button" style="filter: invert(33%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(50%) contrast(100%);">
         </button>
+        
+        <!-- User Section -->
+        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-6 shadow-lg">
+          <!-- Guest View -->
+          <div id="guest-view" class="space-y-4">
+            <h2 class="text-2xl font-bold text-center text-gray-800 mb-6">
+              <i class="fas fa-user-circle mr-2"></i>أهلاً وسهلاً
+            </h2>
+            <div class="grid grid-cols-2 gap-2">
+              <button onclick="showSigninModal()" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 rounded-lg flex items-center justify-center hover:from-blue-700 hover:to-blue-800 transition-all">
+                <i class="fas fa-sign-in-alt mr-2"></i> Sign In
+              </button>
+              <button onclick="showSignupModal()" class="bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-3 rounded-lg flex items-center justify-center hover:from-green-700 hover:to-green-800 transition-all">
+                <i class="fas fa-user-plus mr-2"></i> Sign Up
+              </button>
+            </div>
+            <button id="google-signin-btn" class="w-full bg-gradient-to-r from-red-600 to-red-700 text-white px-4 py-3 rounded-lg flex items-center justify-center hover:from-red-700 hover:to-red-800 transition-all">
+              <i class="fab fa-google mr-2"></i> Continue with Google
+            </button>
+          </div>
+
+          <!-- User View -->
+          <div id="user-view" class="space-y-6 hidden">
+            <div class="flex items-center space-x-4">
+              <div id="user-avatar" class="w-16 h-16 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-white text-2xl font-bold shadow-lg">
+                <!-- First letter inserted by JS -->
+              </div>
+              <div class="flex-grow">
+                <div class="flex items-center justify-between">
+                  <h3 id="username-display" class="text-xl font-bold text-gray-800"></h3>
+                  <button id="mini-signout-btn" class="text-sm text-gray-500 hover:text-red-500 transition-colors ml-2">
+                    <i class="fas fa-sign-out-alt"></i>
+                  </button>
+                </div>
+                <p id="email-display" class="text-sm text-gray-600"></p>
+              </div>
+            </div>
+            
+            <div class="space-y-3 bg-white rounded-lg p-4 shadow-inner">
+              <div class="flex items-center text-sm">
+                <span id="online-status" class="flex items-center">
+                  <span class="w-3 h-3 bg-green-500 rounded-full mr-2 animate-pulse"></span>
+                  <span class="text-gray-700 font-medium">Online</span>
+                </span>
+              </div>
+              <div class="flex items-center text-sm">
+                <span id="sync-status" class="flex items-center">
+                  <i class="fas fa-sync-alt mr-2 text-blue-500"></i>
+                  <span class="text-gray-700 font-medium">Last synced: Just now</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <button id="three-dash-button-control" class="three-dash-button">
+          <img src="./assets/three-dash.svg" width="48" height="48" alt="Three Dash Button" style="filter: invert(33%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(50%) contrast(100%);">
+        </button>
       </div>
-      
     </aside>
+    
   </div>
 
   <!-- Modal for Adding/Editing Bookmark -->
@@ -134,6 +204,60 @@
             <button id="confirm-delete" class="bg-red-500 text-white px-4 py-2 rounded">Delete</button>
             <button id="cancel-delete" class="bg-gray-500 text-white px-4 py-2 rounded" onclick="closeConfirmDeleteModal()">Cancel</button>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Email Sign Up Modal -->
+  <div id="signup-modal" tabindex="-1" inert class="fixed inset-0 z-50 flex items-center justify-center hidden overflow-y-auto overflow-x-hidden bg-gray-800 bg-opacity-50">
+    <div class="relative w-full max-w-md p-4">
+      <div class="relative bg-white rounded-lg shadow">
+        <button type="button" class="absolute top-3 right-2.5 text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5" onclick="closeSignupModal()">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"></path></svg>
+        </button>
+        <div class="px-6 py-6 lg:px-8">
+          <h3 class="mb-4 text-xl font-medium text-gray-900">Create Account</h3>
+          <form class="space-y-6" onsubmit="handleSignup(event)">
+            <div>
+              <label for="signup-name" class="block mb-2 text-sm font-medium text-gray-900">Full Name</label>
+              <input type="text" id="signup-name" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+            </div>
+            <div>
+              <label for="email" class="block mb-2 text-sm font-medium text-gray-900">Email</label>
+              <input type="email" id="signup-email" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+            </div>
+            <div>
+              <label for="password" class="block mb-2 text-sm font-medium text-gray-900">Password</label>
+              <input type="password" id="signup-password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+            </div>
+            <button type="submit" class="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Create Account</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sign In Modal -->
+  <div id="signin-modal" tabindex="-1" inert class="fixed inset-0 z-50 flex items-center justify-center hidden overflow-y-auto overflow-x-hidden bg-gray-800 bg-opacity-50">
+    <div class="relative w-full max-w-md p-4">
+      <div class="relative bg-white rounded-lg shadow">
+        <button type="button" class="absolute top-3 right-2.5 text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5" onclick="closeSigninModal()">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"></path></svg>
+        </button>
+        <div class="px-6 py-6 lg:px-8">
+          <h3 class="mb-4 text-xl font-medium text-gray-900">Sign In</h3>
+          <form class="space-y-6" onsubmit="handleSignin(event)">
+            <div>
+              <label for="signin-email" class="block mb-2 text-sm font-medium text-gray-900">Email</label>
+              <input type="email" id="signin-email" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+            </div>
+            <div>
+              <label for="signin-password" class="block mb-2 text-sm font-medium text-gray-900">Password</label>
+              <input type="password" id="signin-password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
+            </div>
+            <button type="submit" class="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Sign In</button>
+          </form>
         </div>
       </div>
     </div>

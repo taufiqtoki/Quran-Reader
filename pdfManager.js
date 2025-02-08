@@ -1,3 +1,6 @@
+import { auth, syncBookmarks } from './auth.js';
+import { showToast } from './utils.js';
+
 const dbName = 'pdfCacheDB', storeName = 'pages';
 let db, pdfDoc = null, pageIsRendering = false, pageNumPending = null, scale = window.devicePixelRatio || 1;
 const canvas = document.getElementById('pdf-render'), ctx = canvas.getContext('2d');
@@ -106,6 +109,10 @@ const saveBookmark = () => {
     const name = document.getElementById('modal-bookmark-name').value.trim();
     if (!page || !name) return;
     bookmarks[page] = { name };
+    
+    if (auth.currentUser) {
+        syncBookmarks(auth.currentUser.uid, bookmarks);
+    }
     updateBookmarkList();
     closeModal();
     updateStarColor();
@@ -154,6 +161,9 @@ const confirmDeleteBookmark = (page) => {
 
 const deleteBookmark = (page) => {
     delete bookmarks[page];
+    if (auth.currentUser) {
+        syncBookmarks(auth.currentUser.uid, bookmarks);
+    }
     updateBookmarkList();
     showToast('Bookmark deleted');
 };
@@ -324,19 +334,93 @@ const updatePageProgress = (num) => {
     document.getElementById('page-progress').style.width = `${progress}%`;
 };
 
-const showToast = (message) => {
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    toast.textContent = message;
-    document.body.appendChild(toast);
-    setTimeout(() => {
-        toast.remove();
-    }, 3000);
-};
-
 const resetCanvas = () => {
     canvas.width = 0;
     canvas.height = 0;
+};
+
+const loadPDFWithRetry = async (url, retries = 3, delay = 1000) => {
+    let lastError;
+    
+    for (let i = 0; i < retries; i++) {
+        try {
+            const loadingTask = pdfjsLib.getDocument({
+                url: url,
+                cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/cmaps/',
+                cMapPacked: true,
+                enableXfa: true,
+                disableRange: false,
+                disableStream: false,
+                disableAutoFetch: false
+            });
+
+            loadingTask.onProgress = function(data) {
+                const progress = data.loaded / data.total;
+                updateLoadingProgress(progress);
+            };
+
+            const doc = await loadingTask.promise;
+            console.log('PDF loaded successfully');
+            return doc;
+        } catch (error) {
+            lastError = error;
+            console.log(`Attempt ${i + 1} failed:`, error);
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+        }
+    }
+    throw lastError;
+};
+
+const initializePdf = () => {
+    const loadingElement = document.getElementById('loading');
+    
+    // Try to get cached page data first
+    Promise.all([
+        openDB(),
+        getCachedPage(pageNum)
+    ]).then(([_, cachedData]) => {
+        if (cachedData) {
+            // Show cached page immediately while loading full PDF
+            const img = new Image();
+            img.src = cachedData;
+            img.onload = () => {
+                const canvas = document.getElementById('pdf-render');
+                const ctx = canvas.getContext('2d');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+            };
+        }
+
+        // Load full PDF
+        return loadPDFWithRetry('./assets/book.pdf');
+    }).then((pdfDoc_) => {
+        pdfDoc = pdfDoc_;
+        setPdfDoc(pdfDoc);
+        renderPage(pageNum, scale);
+        if (loadingElement) loadingElement.style.display = 'none';
+        
+        // Pre-cache next few pages
+        for (let i = pageNum + 1; i <= Math.min(pageNum + 3, pdfDoc.numPages); i++) {
+            prefetchPages(i, 1);
+        }
+    }).catch((error) => {
+        console.error('Error loading PDF:', error);
+        if (loadingElement) {
+            loadingElement.innerHTML = `
+                <div class="text-red-500 text-center p-4">
+                    <div class="text-xl mb-2">Error loading PDF</div>
+                    <p>Please check your internet connection</p>
+                    <p class="text-sm mt-2">${error.message}</p>
+                    <button onclick="retryLoadPDF()" class="bg-blue-500 text-white px-4 py-2 rounded mt-4">
+                        Retry Loading
+                    </button>
+                </div>
+            `;
+        }
+    });
 };
 
 document.addEventListener('DOMContentLoaded', () => {
