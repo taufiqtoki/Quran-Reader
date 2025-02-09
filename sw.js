@@ -1,80 +1,83 @@
 const CACHE_NAME = 'quran-reader-v1';
 const PDF_CACHE_NAME = 'pdf-cache-v1';
+const FIREBASE_DOMAINS = [
+  'firestore.googleapis.com',
+  'apis.google.com',
+  'www.googleapis.com'
+];
+
+// Add valid schemes
+const VALID_SCHEMES = ['http:', 'https:'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    Promise.all([
-      caches.open(CACHE_NAME).then((cache) => {
-        return cache.addAll([
-          './',
-          './index.html',
-          './style.css',
-          './main.js',
-          './auth.js',
-          './pdfManager.js',
-          './assets/star.svg',
-          './assets/three-dash.svg',
-          './assets/quran-icon.png'
-        ]);
-      }),
-      caches.open(PDF_CACHE_NAME).then((cache) => {
-        return cache.add('./assets/book.pdf')
-          .catch(error => console.log('PDF caching failed:', error));
-      })
-    ])
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll([
+        '/',
+        '/index.html',
+        '/style.css',
+        '/main.js',
+        '/auth.js',
+        '/pdfManager.js',
+        '/assets/star.svg',
+        '/assets/three-dash.svg',
+        '/assets/quran-icon.png'
+      ]);
+    })
   );
 });
 
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  
+  // Only cache requests with valid schemes and non-Firebase domains
+  if (!VALID_SCHEMES.includes(url.protocol) || 
+      FIREBASE_DOMAINS.some(domain => url.hostname.includes(domain))) {
+    return;
+  }
+
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      if (response) {
-        return response;
-      }
+    caches.match(event.request).then(async (response) => {
+      if (response) return response;
 
-      // For PDF requests, try network first then cache
-      if (event.request.url.endsWith('.pdf')) {
-        return fetch(event.request)
-          .then(response => {
-            const responseClone = response.clone();
-            caches.open(PDF_CACHE_NAME).then(cache => {
-              cache.put(event.request, responseClone);
-            });
-            return response;
-          })
-          .catch(() => {
-            return caches.match(event.request);
-          });
-      }
+      try {
+        const fetchResponse = await fetch(event.request.clone());
+        
+        if (!fetchResponse || fetchResponse.status !== 200) {
+          return fetchResponse;
+        }
 
-      // Clone the request because it can only be used once
-      const fetchRequest = event.request.clone();
-
-      return fetch(fetchRequest)
-        .then((response) => {
-          // Check if we received a valid response
-          if (!response || response.status !== 200 || response.type !== 'basic') {
-            return response;
+        // Only cache GET requests with valid schemes
+        if (event.request.method === 'GET' && 
+            VALID_SCHEMES.includes(url.protocol)) {
+          try {
+            const cache = await caches.open(CACHE_NAME);
+            await cache.put(event.request, fetchResponse.clone());
+          } catch (err) {
+            console.warn('Cache put error:', err.message);
           }
+        }
 
-          // Clone the response because it can only be used once
-          const responseToCache = response.clone();
+        return fetchResponse;
+      } catch (error) {
+        if (event.request.mode === 'navigate') {
+          return caches.match('/index.html');
+        }
+        return new Response(null, { status: 200 });
+      }
+    })
+  );
+});
 
-          caches.open(CACHE_NAME)
-            .then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
-
-          return response;
-        })
-        .catch(() => {
-          // Return a fallback response if offline
-          if (event.request.url.includes('firestore.googleapis.com')) {
-            return new Response(JSON.stringify({ offline: true }), {
-              headers: { 'Content-Type': 'application/json' }
-            });
-          }
-        });
+// Clean up old caches
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames
+          .filter(name => name !== CACHE_NAME && name !== PDF_CACHE_NAME)
+          .map(name => caches.delete(name))
+      );
     })
   );
 });

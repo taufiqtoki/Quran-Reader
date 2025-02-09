@@ -16,9 +16,11 @@ import {
     deleteBookmark, 
     confirmDeleteBookmark, 
     toggleFullScreen, 
-    updateStarColor 
+    updateStarColor,
+    handleModalKeyDown,
+    handleMouseUpDown // Import it from pdfManager.js
 } from './pdfManager.js';
-import { signUpWithEmail, signInWithEmail, showSigninModal, showSignupModal, closeSigninModal, closeSignupModal, handleSignin, handleSignup, handleGoogleSignIn } from './auth.js';
+import { signUpWithEmail, signInWithEmail, showSigninModal, showSignupModal, closeSigninModal, closeSignupModal, handleSignin, handleSignup, handleGoogleSignIn, handlePasswordReset } from './auth.js';
 import { showToast } from './utils.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
@@ -33,65 +35,91 @@ const updateLoadingProgress = (progress) => {
   const progressBar = document.querySelector('.loading-progress-bar');
   const loadingText = document.querySelector('.loading-text');
   if (progressBar && loadingText) {
-    progressBar.style.width = `${progress * 100}%`;
-    loadingText.textContent = `Loading PDF... ${Math.round(progress * 100)}%`;
+    const percentage = Math.round(progress * 100);
+    progressBar.style.width = `${percentage}%`;
+    loadingText.textContent = `Loading PDF... ${percentage}%`;
   }
 };
 
-const initializePdf = () => {
-    openDB().then(() => {
-        const loadingTask = pdfjsLib.getDocument(pdfPath);
-        
-        loadingTask.onProgress = function(data) {
-            const progress = data.loaded / data.total;
-            updateLoadingProgress(progress);
-        };
-
-        loadingTask.promise
-            .then((pdfDoc_) => {
-                console.log('PDF loaded successfully');
-                pdfDoc = pdfDoc_;
-                setPdfDoc(pdfDoc);
-                renderPage(pageNum, scale);
-                document.getElementById('loading').style.display = 'none';
-            })
-            .catch((error) => {
-                console.error('Error loading PDF:', error);
-                const loadingDiv = document.getElementById('loading');
-                if (loadingDiv) {
-                    loadingDiv.innerHTML = `
-                        <div class="text-red-500 text-center p-4">
-                            <div class="text-xl mb-2">Error loading PDF</div>
-                            <p>Please ensure the PDF file exists at: ${pdfPath}</p>
-                            <p>Typical locations:</p>
-                            <ul class="text-left list-disc ml-8 mt-2">
-                                <li>/public/assets/book.pdf</li>
-                                <li>/assets/book.pdf</li>
-                            </ul>
-                            <p class="text-sm mt-4 text-gray-600">${error.message}</p>
-                            <button onclick="retryLoadPDF()" class="bg-blue-500 text-white px-4 py-2 rounded mt-4">
-                                Retry Loading
-                            </button>
-                        </div>
-                    `;
-                }
+const loadPDFWithRetry = async (url, retries = 3, delay = 1000) => {
+    let lastError;
+    for (let i = 0; i < retries; i++) {
+        try {
+            const loadingTask = pdfjsLib.getDocument({
+                url: url,
+                cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/cmaps/',
+                cMapPacked: true,
+                enableXfa: true,
+                maxImageSize: -1,  // No size limit
+                disableFontFace: false,
+                disableRange: false,
+                disableStream: false,
+                disableAutoFetch: false,
+                standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/standard_fonts/',
+                rangeChunkSize: 65536, // 64KB chunks
+                length: 31373414  // Exact file size in bytes
             });
-    });
+            
+            loadingTask.onProgress = function(data) {
+                const progress = data.loaded / (data.total || 31373414);
+                updateLoadingProgress(Math.min(progress, 1));
+            };
+
+            const doc = await loadingTask.promise;
+            console.log('PDF loaded successfully with size:', doc.numPages);
+            return doc;
+        } catch (error) {
+            console.error(`Attempt ${i + 1} failed:`, error);
+            if (i < retries - 1) {
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
+            lastError = error;
+        }
+    }
+    throw lastError;
 };
 
-// Add retry function
-const retryLoadPDF = () => {
-    document.getElementById('loading').innerHTML = `
-        <div class="spinner"></div>
-        <div class="loading-text">Retrying to load PDF...</div>
-        <div class="loading-progress">
-            <div class="loading-progress-bar" style="width: 0%"></div>
+const initializePdf = async () => {
+  try {
+    await openDB();
+    pdfDoc = await loadPDFWithRetry(pdfPath);
+    setPdfDoc(pdfDoc);
+    renderPage(pageNum, scale);
+    document.getElementById('loading').style.display = 'none';
+  } catch (error) {
+    console.error('Error loading PDF:', error);
+    const loadingDiv = document.getElementById('loading');
+    if (loadingDiv) {
+      loadingDiv.innerHTML = `
+        <div class="text-red-500 text-center p-4">
+          <div class="text-xl mb-2">Error loading PDF</div>
+          <p>Please ensure the PDF file exists at: ${pdfPath}</p>
+          <p>Typical locations:</p>
+          <ul class="text-left list-disc ml-8 mt-2">
+            <li>/public/assets/book.pdf</li>
+            <li>/assets/book.pdf</li>
+          </ul>
+          <p class="text-sm mt-4 text-gray-600">${error.message}</p>
+          <button onclick="retryLoadPDF()" class="bg-blue-500 text-white px-4 py-2 rounded mt-4">
+            Retry Loading
+          </button>
         </div>
-    `;
-    initializePdf();
+      `;
+    }
+  }
 };
 
-// Make retry function available globally
+const retryLoadPDF = () => {
+  document.getElementById('loading').innerHTML = `
+    <div class="spinner"></div>
+    <div class="loading-text">Retrying to load PDF...</div>
+    <div class="loading-progress">
+      <div class="loading-progress-bar" style="width: 0%"></div>
+    </div>
+  `;
+  initializePdf();
+};
+
 window.retryLoadPDF = retryLoadPDF;
 
 initializePdf();
@@ -158,6 +186,9 @@ const handleKeyDown = (event) => {
     }, 200); // Adjust the delay as needed
 };
 
+// Make handleKeyDown globally available
+window.handleKeyDown = handleKeyDown;
+
 const toggleControls = () => {
     const controlSection = document.getElementById('control-section');
     controlSection.classList.toggle('hidden');
@@ -174,7 +205,8 @@ const toggleControls = () => {
 
 const handleWheel = (event) => { debounce(() => { if (event.deltaY > 0) showNextPage(); else showPrevPage(); }, 100); };
 
-const handleMouseUpDown = (event) => { if (event.button === 4) showPrevPage(); else if (event.button === 5) showNextPage(); };
+// Remove the duplicate definition
+// const handleMouseUpDown = (event) => { ... }; // REMOVE THIS
 
 const handleResize = () => {
     debounce(() => {
@@ -319,7 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
     addEventListenerIfExists(pageInput, 'blur', () => clearFocus('input'));
     addEventListenerIfExists(showBookmarksBtn, 'click', toggleBookmarks);
     addEventListenerIfExists(showControlsBtn, 'click', () => {
-        document.getElementById('control-section').classList.toggle('hidden');
+        document.getElementById('control-section').classList.toggle('hidden');  
     });
     addEventListenerIfExists(backButton, 'click', () => {
         window.history.back();
@@ -332,10 +364,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (pdfViewer) {
         pdfViewer.style.zIndex = '1'; // Set z-index to a low value
         pdfViewer.addEventListener('wheel', handleWheel);
-        pdfViewer.addEventListener('mousedown', handleMouseUpDown);
+        pdfViewer.addEventListener('mousedown', handleMouseUpDown); // Use the imported function
         pdfViewer.ondblclick = toggleFullScreen;
     }
-    document.addEventListener('keydown', handleKeyDown);
+    document.body.addEventListener('keydown', handleKeyDown);
     window.addEventListener('resize', handleResize);
     window.addEventListener('orientationchange', handleOrientationChange);
     document.addEventListener('fullscreenchange', handleResize);
@@ -347,6 +379,44 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     requestWakeLock();
+
+    // Handle user section visibility in portrait mode
+    const handleUserSectionVisibility = () => {
+        const userSection = document.querySelector('.user-section-container');
+        if (window.matchMedia("(orientation: portrait)").matches) {
+            userSection.classList.toggle('expanded');
+        }
+    };
+
+    // Add click handler to user section in portrait mode
+    const userAvatarOrSignIn = document.getElementById('user-avatar') || document.getElementById('signin-btn');
+    if (userAvatarOrSignIn) {
+        userAvatarOrSignIn.addEventListener('click', handleUserSectionVisibility);
+    }
+
+    // Handle orientation changes
+    window.addEventListener('orientationchange', () => {
+        const userSection = document.querySelector('.user-section-container');
+        if (window.matchMedia("(orientation: landscape)").matches) {
+            userSection.classList.remove('expanded');
+        }
+    });
+
+    // Add click handler to three-dash button for user section
+    if (threeDashButton) {
+        threeDashButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            handleUserSectionVisibility();
+        });
+    }
+
+    // Close user section when clicking outside
+    document.addEventListener('click', (e) => {
+        const userSection = document.querySelector('.user-section-container');
+        if (!userSection.contains(e.target) && !threeDashButton.contains(e.target)) {
+            userSection.classList.remove('expanded');
+        }
+    });
 });
 
 window.jumpToBookmark = jumpToBookmark;
@@ -377,3 +447,6 @@ window.showSigninModal = showSigninModal;
 window.closeSigninModal = closeSigninModal;
 window.handleSignin = handleSignin;
 window.handleGoogleSignIn = handleGoogleSignIn;
+window.handlePasswordReset = handlePasswordReset;
+window.handleModalKeyDown = handleModalKeyDown;
+window.handleMouseUpDown = handleMouseUpDown;

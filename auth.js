@@ -1,16 +1,36 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js';
 import { 
-    getAuth, 
     signInWithPopup, 
     GoogleAuthProvider, 
     signOut,
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
-    updateProfile // Add this import
+    updateProfile,
+    sendPasswordResetEmail
 } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js';
-import { getFirestore, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js';
-import { getDatabase, ref, onValue } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js';
+import { doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js';
+import { ref, onValue } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js';
+import { auth, db, rtdb } from './firebaseConfig.js';
 import { showToast } from './utils.js';
+import { getBookmarks, getLastRead } from './firestoreManager.js';
+
+export const firebaseConfig = {
+  apiKey: "AIzaSyCz7CE73lGtT0WweoXuBYxGX58hKAXEK8o",
+  authDomain: "ihafeziquran.firebaseapp.com",
+  projectId: "ihafeziquran",
+  databaseURL: "https://ihafeziquran-default-rtdb.firebaseio.com",
+  storageBucket: "ihafeziquran.firebasestorage.app",
+  messagingSenderId: "961267141827",
+  appId: "1:961267141827:web:9cdbaa6cc2aaf1ffad6676"
+};
+
+// Remove these lines since we're importing them from firebaseConfig.js
+// const app = window.firebaseApp || initializeApp(firebaseConfig);
+// const db = initializeFirestore(app, {...});
+// const rtdb = getDatabase(app);
+
+// Remove the deprecated call
+// enableIndexedDbPersistence(db)...
 
 // Add offline detection
 let isOffline = false;
@@ -22,54 +42,49 @@ function initializeConnectionMonitoring() {
         onValue(connectedRef, (snap) => {
             isOffline = !snap.val();
             updateConnectionStatus();
+        }, {
+            // Add error handler directly
+            onlyOnce: false,
+            timeout: 5000
+        }, (error) => {
+            console.warn('Connection monitoring fallback mode:', error);
+            useOfflineDetectionFallback();
         });
     } catch (error) {
-        console.log('Connection monitoring error:', error);
-        // Set up fallback offline detection
-        window.addEventListener('online', () => {
-            isOffline = false;
-            updateConnectionStatus();
-        });
-        window.addEventListener('offline', () => {
-            isOffline = true;
-            updateConnectionStatus();
-        });
+        console.warn('Connection monitoring fallback mode:', error);
+        useOfflineDetectionFallback();
     }
+}
+
+function useOfflineDetectionFallback() {
+    window.addEventListener('online', () => {
+        isOffline = false;
+        updateConnectionStatus();
+    });
+    window.addEventListener('offline', () => {
+        isOffline = true;
+        updateConnectionStatus();
+    });
 }
 
 function updateConnectionStatus() {
     const statusElement = document.getElementById('online-status');
-    if (statusElement) {
-        if (isOffline) {
-            statusElement.innerHTML = `
-                <span class="w-3 h-3 bg-red-500 rounded-full mr-2"></span>
-                <span class="text-gray-700 font-medium">Offline</span>
-            `;
-            showToast('Working offline');
-        } else {
-            statusElement.innerHTML = `
-                <span class="w-3 h-3 bg-green-500 rounded-full mr-2 animate-pulse"></span>
-                <span class="text-gray-700 font-medium">Online</span>
-            `;
-            showToast('Back online');
-        }
+    if (!statusElement) return; // Exit if status element doesn't exist
+    
+    if (isOffline) {
+        statusElement.innerHTML = `
+            <span class="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+            <span class="text-gray-600">Offline</span>
+        `;
+        showToast('Working offline');
+    } else {
+        statusElement.innerHTML = `
+            <span class="w-2 h-2 bg-green-500 rounded-full mr-2 animate-pulse"></span>
+            <span class="text-gray-600">Online</span>
+        `;
+        showToast('Back online');
     }
 }
-
-const firebaseConfig = {
-  apiKey: "AIzaSyCz7CE73lGtT0WweoXuBYxGX58hKAXEK8o",
-  authDomain: "ihafeziquran.firebaseapp.com",
-  projectId: "ihafeziquran",
-  storageBucket: "ihafeziquran.firebasestorage.app",
-  messagingSenderId: "961267141827",
-  appId: "1:961267141827:web:9cdbaa6cc2aaf1ffad6676"
-};
-
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const rtdb = getDatabase(app); // Add realtime database
-const provider = new GoogleAuthProvider();
 
 // UI Elements with null checks
 const userSection = document.getElementById('user-view');
@@ -105,7 +120,8 @@ async function syncBookmarks(userId, bookmarks) {
     }
 
     try {
-        await setDoc(doc(db, "bookmarks", userId), { bookmarks });
+        const bookmarksRef = doc(db, "bookmarks", userId);
+        await setDoc(bookmarksRef, { bookmarks });
         showToast('Bookmarks synced successfully');
     } catch (error) {
         console.error("Error syncing bookmarks:", error);
@@ -166,7 +182,7 @@ async function signInWithEmail(email, password) {
     }
 }
 
-// Add Google sign-in handler
+// Add Google sign-in handler with better error handling
 const handleGoogleSignIn = async () => {
     try {
         const provider = new GoogleAuthProvider();
@@ -175,40 +191,142 @@ const handleGoogleSignIn = async () => {
         });
         const result = await signInWithPopup(auth, provider);
         showToast('Signed in successfully with Google');
+        updateUIForUser(result.user); // Ensure UI is updated after sign-in
         return result.user;
     } catch (error) {
         console.error("Google sign in error:", error);
-        showToast(error.message);
+        // Don't show error toast for user-initiated cancellation
+        if (error.code !== 'auth/popup-closed-by-user') {
+            showToast(error.message || 'Failed to sign in with Google');
+        }
         throw error;
     }
 };
 
-// Auth state observer
-auth.onAuthStateChanged(async (user) => {
-    if (user) {
-        // User is signed in
-        userSection.classList.remove('hidden');
-        guestSection.classList.add('hidden');
-        userAvatar.textContent = user.displayName ? user.displayName[0].toUpperCase() : user.email[0].toUpperCase();
-        userDisplayName.textContent = user.displayName || 'Qari'; // Changed 'User' to 'Qari'
-        userEmail.textContent = user.email;
+// Add password reset function
+const handlePasswordReset = async (email) => {
+    try {
+        await sendPasswordResetEmail(auth, email);
+        showToast('Password reset email sent! Please check your inbox.');
+        closeSigninModal();
+    } catch (error) {
+        console.error("Password reset error:", error);
+        showToast(error.message || 'Failed to send reset email');
+    }
+};
 
+// Update the UI update function
+const updateUIForUser = (user) => {
+    console.log('Updating UI for user:', user); // Debug log
+
+    // Get UI elements
+    const userView = document.getElementById('user-view');
+    const guestView = document.getElementById('guest-view');
+    const userAvatar = document.getElementById('user-avatar');
+    const displayName = document.getElementById('username-display');
+    const emailDisplay = document.getElementById('email-display');
+
+    // Log element existence
+    console.log('Elements found:', {
+        userView: !!userView,
+        guestView: !!guestView,
+        userAvatar: !!userAvatar,
+        displayName: !!displayName,
+        emailDisplay: !!emailDisplay
+    });
+
+    // Ensure all elements exist
+    if (!userView || !guestView || !userAvatar || !displayName || !emailDisplay) {
+        console.error('Some UI elements are missing');
+        return;
+    }
+
+    try {
+        // Update visibility
+        userView.classList.remove('hidden');
+        guestView.classList.add('hidden');
+
+        // Update user info
+        const nameInitial = (user.displayName || user.email || 'U')[0].toUpperCase();
+        userAvatar.textContent = nameInitial;
+        userAvatar.classList.add('w-10', 'h-10', 'flex', 'items-center', 'justify-center');
+        
+        displayName.textContent = user.displayName || 'User';
+        emailDisplay.textContent = user.email;
+
+        // Ensure elements are visible
+        userView.style.display = 'block';
+        guestView.style.display = 'none';
+
+        console.log('UI updated successfully');
+    } catch (error) {
+        console.error('Error updating UI:', error);
+    }
+};
+
+// Update the auth state observer
+auth.onAuthStateChanged(async (user) => {
+    console.log('[Auth] Auth state changed:', user?.uid); // Debug log
+    
+    if (user) {
         try {
-            const userBookmarks = await loadBookmarks(user.uid);
-            // Check if updateBookmarkList exists before calling
+            // First ensure user document exists
+            const userRef = doc(db, 'users', user.uid);
+            await setDoc(userRef, {
+                email: user.email,
+                updatedAt: new Date().toISOString()
+            }, { merge: true });
+
+            updateUIForUser(user);
+
+            // Load bookmarks first
+            console.log('[Auth] Loading bookmarks for user:', user.uid); // Debug log
+            const bookmarks = await getBookmarks(user.uid);
+            console.log('[Auth] Loaded bookmarks:', bookmarks); // Debug log
+            
+            // Set global bookmarks
+            window.bookmarks = bookmarks || {};
+            console.log('[Auth] Set window.bookmarks:', window.bookmarks); // Debug log
+            
+            // Force bookmark list update
             if (typeof window.updateBookmarkList === 'function') {
-                window.bookmarks = userBookmarks;
+                console.log('[Auth] Calling updateBookmarkList'); // Debug log
                 window.updateBookmarkList();
             } else {
-                console.log('updateBookmarkList not ready yet');
+                console.warn('[Auth] updateBookmarkList not available'); // Debug log
             }
+
+            // Then load last read page
+            const lastReadPage = await getLastRead(user.uid);
+            if (lastReadPage) {
+                localStorage.setItem('lastPage', lastReadPage);
+                if (typeof window.queueRenderPage === 'function') {
+                    window.queueRenderPage(lastReadPage);
+                }
+            }
+
+            showToast('Data synced successfully');
         } catch (error) {
-            console.error('Error in auth state change:', error);
+            console.error('[Auth] Error:', error);
+            showToast('Error loading bookmarks');
         }
     } else {
-        // User is signed out
-        userSection.classList.add('hidden');
-        guestSection.classList.remove('hidden');
+        // Reset UI for guest
+        const userView = document.getElementById('user-view');
+        const guestView = document.getElementById('guest-view');
+        
+        if (userView && guestView) {
+            userView.classList.add('hidden');
+            guestView.classList.remove('hidden');
+            
+            // Ensure visibility
+            userView.style.display = 'none';
+            guestView.style.display = 'block';
+        }
+        
+        // Clear local data
+        localStorage.removeItem('bookmarks');
+        window.bookmarks = {};
     }
 });
 
@@ -245,6 +363,7 @@ document.addEventListener('DOMContentLoaded', () => {
             try {
                 await handleGoogleSignIn();
             } catch (error) {
+                // Only log the error, toast is handled in handleGoogleSignIn
                 console.error("Google sign in click error:", error);
             }
         });
@@ -329,5 +448,6 @@ export {
     handleGoogleSignIn,
     showSignupModal,
     closeSignupModal,
-    handleSignup
+    handleSignup,
+    handlePasswordReset
 };

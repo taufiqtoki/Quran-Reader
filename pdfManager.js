@@ -1,5 +1,6 @@
 import { auth, syncBookmarks } from './auth.js';
 import { showToast } from './utils.js';
+import { addBookmark, updateLastRead, deleteBookmark as deleteFirestoreBookmark } from './firestoreManager.js';
 
 const dbName = 'pdfCacheDB', storeName = 'pages';
 let db, pdfDoc = null, pageIsRendering = false, pageNumPending = null, scale = window.devicePixelRatio || 1;
@@ -15,6 +16,7 @@ const MAX_CACHED_PAGES = 50; // Limit the number of cached pages
 
 let xDown = null, yDown = null; // Add these variables at the top of the file
 let touchLock = false;  // added flag to prevent double triggering
+let debounceTimeout; // Add this at the top with other variable declarations
 
 const openDB = () => new Promise((resolve, reject) => {
     const request = indexedDB.open(dbName, 1);
@@ -64,21 +66,36 @@ const deleteCachedPage = (page) => {
 
 const updateBookmarkList = () => {
     const bookmarkList = document.getElementById('bookmark-list');
+    if (!bookmarkList) {
+        console.error('Bookmark list element not found');
+        return;
+    }
+
+    console.log('Updating bookmark list with:', window.bookmarks); // Debug log
     bookmarkList.innerHTML = '';
-    Object.keys(bookmarks).sort((a, b) => a - b).forEach((page) => {
-        const bookmark = bookmarks[page];
-        if (bookmark) { // Add check to skip null values
+    
+    Object.entries(window.bookmarks || {}).sort(([a], [b]) => parseInt(a) - parseInt(b)).forEach(([page, bookmark]) => {
+        if (bookmark) {
             const li = document.createElement('li');
             li.className = 'flex justify-between items-center bg-gray-200 px-4 py-2 rounded';
-            li.innerHTML = `<span class="cursor-pointer" onclick="jumpToBookmark(${page})">${bookmark.name} (Page ${page})</span>
+            li.innerHTML = `
+                <span class="cursor-pointer" onclick="jumpToBookmark(${page})">
+                    ${bookmark.name} (Page ${page})
+                </span>
                 <div class="flex space-x-2">
-                    <button class="text-blue-500" onclick="editBookmark(${page})"><i class="fas fa-edit"></i></button>
-                    <button class="text-red-500" onclick="confirmDeleteBookmark(${page})"><i class="fas fa-trash-alt"></i></button>
-                </div>`;
+                    <button class="text-blue-500" onclick="editBookmark(${page})">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="text-red-500" onclick="confirmDeleteBookmark(${page})">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+            `;
             bookmarkList.appendChild(li);
         }
     });
-    localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
+    
+    updateStarColor();
 };
 
 const jumpToBookmark = (page) => {
@@ -104,20 +121,22 @@ const addBookmarkModal = () => {
     startAutoSaveTimer(); // Start the auto-save timer
 };
 
-const saveBookmark = () => {
+const saveBookmark = async () => {
     const page = parseInt(document.getElementById('modal-page-number').value, 10);
     const name = document.getElementById('modal-bookmark-name').value.trim();
     if (!page || !name) return;
+
     bookmarks[page] = { name };
     
+    // Sync with Firestore if user is signed in
     if (auth.currentUser) {
-        syncBookmarks(auth.currentUser.uid, bookmarks);
+        await addBookmark(auth.currentUser.uid, name, page);
     }
+    
     updateBookmarkList();
     closeModal();
     updateStarColor();
     showToast('Bookmark saved');
-    clearTimeout(autoSaveTimer); // Clear the auto-save timer
 };
 
 const editBookmark = (page) => {
@@ -159,11 +178,27 @@ const confirmDeleteBookmark = (page) => {
     };
 };
 
-const deleteBookmark = (page) => {
-    delete bookmarks[page];
-    if (auth.currentUser) {
-        syncBookmarks(auth.currentUser.uid, bookmarks);
+const deleteBookmark = async (page) => {
+    const bookmark = bookmarks[page];
+    if (!bookmark) return;
+
+    // If user is signed in and bookmark has an ID, try to delete from Firestore
+    if (auth.currentUser && bookmark.id) {
+        try {
+            const success = await deleteFirestoreBookmark(auth.currentUser.uid, bookmark.id);
+            if (!success) {
+                showToast('Error deleting bookmark from cloud');
+                // Continue with local deletion even if cloud deletion fails
+            }
+        } catch (error) {
+            console.error('Error deleting from Firestore:', error);
+            // Continue with local deletion
+        }
     }
+
+    // Always delete from local storage
+    delete bookmarks[page];
+    localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
     updateBookmarkList();
     showToast('Bookmark deleted');
 };
@@ -319,9 +354,19 @@ const renderPage = (num, scale) => {
     });
 };
 
-const queueRenderPage = (num) => {
-    pageNum = num; // Update the current page number
-    localStorage.setItem('lastPage', pageNum); // Store the current page number in local storage
+const queueRenderPage = async (num) => {
+    pageNum = num;
+    localStorage.setItem('lastPage', pageNum);
+    
+    // Sync with Firestore if user is signed in
+    if (auth.currentUser) {
+        try {
+            await updateLastRead(auth.currentUser.uid, pageNum);
+        } catch (error) {
+            console.error('Error updating last read page:', error);
+        }
+    }
+    
     if (pageIsRendering) {
         pageNumPending = num;
     } else {
@@ -373,55 +418,70 @@ const loadPDFWithRetry = async (url, retries = 3, delay = 1000) => {
     throw lastError;
 };
 
-const initializePdf = () => {
-    const loadingElement = document.getElementById('loading');
-    
-    // Try to get cached page data first
-    Promise.all([
-        openDB(),
-        getCachedPage(pageNum)
-    ]).then(([_, cachedData]) => {
-        if (cachedData) {
-            // Show cached page immediately while loading full PDF
-            const img = new Image();
-            img.src = cachedData;
-            img.onload = () => {
-                const canvas = document.getElementById('pdf-render');
-                const ctx = canvas.getContext('2d');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                ctx.drawImage(img, 0, 0);
-            };
-        }
-
-        // Load full PDF
-        return loadPDFWithRetry('./assets/book.pdf');
-    }).then((pdfDoc_) => {
-        pdfDoc = pdfDoc_;
-        setPdfDoc(pdfDoc);
-        renderPage(pageNum, scale);
-        if (loadingElement) loadingElement.style.display = 'none';
-        
-        // Pre-cache next few pages
-        for (let i = pageNum + 1; i <= Math.min(pageNum + 3, pdfDoc.numPages); i++) {
-            prefetchPages(i, 1);
-        }
-    }).catch((error) => {
-        console.error('Error loading PDF:', error);
-        if (loadingElement) {
-            loadingElement.innerHTML = `
-                <div class="text-red-500 text-center p-4">
-                    <div class="text-xl mb-2">Error loading PDF</div>
-                    <p>Please check your internet connection</p>
-                    <p class="text-sm mt-2">${error.message}</p>
-                    <button onclick="retryLoadPDF()" class="bg-blue-500 text-white px-4 py-2 rounded mt-4">
-                        Retry Loading
-                    </button>
-                </div>
-            `;
-        }
-    });
+const initializePdf = async () => {
+  try {
+    await openDB();
+    pdfDoc = await loadPDFWithRetry('./assets/book.pdf');
+    setPdfDoc(pdfDoc);
+    renderPage(pageNum, scale);
+    document.getElementById('loading').style.display = 'none';
+  } catch (error) {
+    console.error('Error loading PDF:', error);
+    const loadingDiv = document.getElementById('loading');
+    if (loadingDiv) {
+      loadingDiv.innerHTML = `
+        <div class="text-red-500 text-center p-4">
+          <div class="text-xl mb-2">Error loading PDF</div>
+          <p>Please check your internet connection</p>
+          <p class="text-sm mt-2">${error.message}</p>
+          <button onclick="retryLoadPDF()" class="bg-blue-500 text-white px-4 py-2 rounded mt-4">
+            Retry Loading
+          </button>
+        </div>
+      `;
+    }
+  }
 };
+
+// Add this before the DOMContentLoaded event listener
+const handleWheel = (event) => {
+    if (!pdfDoc) return;
+    
+    // Prevent default to avoid page scrolling while viewing PDF
+    event.preventDefault();
+    
+    if (!event.deltaY) return;
+    
+    // Add debounce to prevent rapid firing
+    clearTimeout(debounceTimeout);
+    debounceTimeout = setTimeout(() => {
+        if (event.deltaY > 0) {
+            // Scrolling down - next page
+            if (pageNum < pdfDoc.numPages) {
+                pageNum++;
+                queueRenderPage(pageNum);
+            }
+        } else {
+            // Scrolling up - previous page
+            if (pageNum > 1) {
+                pageNum--;
+                queueRenderPage(pageNum);
+            }
+        }
+    }, 300); // Increase debounce time to prevent rapid page changes
+};
+
+// Define handleMouseUpDown once, near the top with other function declarations
+const handleMouseUpDown = (event) => {
+    if (event.button === 4) {
+        showPrevPage();
+    } else if (event.button === 5) {
+        showNextPage();
+    }
+};
+
+// Make it available globally only once
+window.handleMouseUpDown = handleMouseUpDown;
 
 document.addEventListener('DOMContentLoaded', () => {
     const prevPageBtn = document.getElementById('prev-page');
@@ -503,6 +563,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.addEventListener('touchstart', handleTouchStart, false);
     document.addEventListener('touchmove', handleTouchMove, false);
+
+    const pdfViewer = document.getElementById('pdf-render');
+    if (pdfViewer) {
+        pdfViewer.style.zIndex = '1';
+        pdfViewer.addEventListener('wheel', handleWheel, { passive: false });
+        pdfViewer.addEventListener('mousedown', handleMouseUpDown); // Use the local reference
+        pdfViewer.ondblclick = toggleFullScreen;
+    }
 });
 
 const jumpToPage = () => {
@@ -577,4 +645,32 @@ const handleTouchMove = (evt) => {
 };
 
 // Ensure all necessary functions are exported
-export { openDB, setPdfDoc, renderPage, queueRenderPage, updateBookmarkList, jumpToBookmark, addBookmarkModal, saveBookmark, editBookmark, confirmDeleteBookmark, deleteBookmark, closeModal, closeConfirmDeleteModal, updateStarColor, jumpToPage, toggleFullScreen, showNextPage, showPrevPage, zoomIn, toggleBookmarks };
+export { 
+    openDB, 
+    setPdfDoc, 
+    renderPage, 
+    queueRenderPage, 
+    updateBookmarkList, 
+    jumpToBookmark, 
+    addBookmarkModal, 
+    saveBookmark, 
+    editBookmark, 
+    confirmDeleteBookmark, 
+    deleteBookmark, 
+    closeModal, 
+    closeConfirmDeleteModal, 
+    updateStarColor, 
+    jumpToPage, 
+    toggleFullScreen, 
+    showNextPage, 
+    showPrevPage, 
+    zoomIn, 
+    toggleBookmarks,
+    handleModalKeyDown, // Add this line
+    handleWheel, // Add this line
+    handleMouseUpDown // Add this line
+};
+
+// Attach functions to the global scope for inline event handlers:
+window.deleteBookmark = deleteBookmark;
+window.handleMouseUpDown = handleMouseUpDown; // Add this line

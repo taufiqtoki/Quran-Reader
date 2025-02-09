@@ -177,8 +177,6 @@ body, html { user-select: none; height: 100%; margin: 0; }
   }
 
   #page-info {
-    position: absolute;
-    bottom: 0;
     width: 80%;
     height: 3%;
     background: white;
@@ -425,5 +423,166 @@ body, html { user-select: none; height: 100%; margin: 0; }
     }
 }
 
+/* User section responsive styles */
+.user-section-container {
+  height: auto;
+  transition: all 0.3s ease;
+}
+
+/* Portrait mode */
+@media (orientation: portrait) {
+  .user-section-container {
+    max-height: 0;
+    overflow: hidden;
+  }
+
+  .user-section-container.expanded {
+    max-height: 500px;
+  }
+
+  #user-view, #guest-view {
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 0.5rem;
+    margin-top: 1rem;
+  }
+
+  /* Adjust button sizes for mobile */
+  #signin-btn,
+  #email-signup-btn,
+  #google-signin-btn {
+    height: 8vh;
+    font-size: 0.9rem;
+  }
+}
+
+/* Landscape mode */
+@media (orientation: landscape) {
+  .user-section-container {
+    position: static;
+    height: auto;
+    opacity: 1;
+    visibility: visible;
+  }
+
+  #user-view, #guest-view {
+    padding: 1.5rem;
+  }
+
+  /* Adjust button sizes for desktop */
+  #signin-btn,
+  #email-signup-btn,
+  #google-signin-btn {
+    height: 6vh;
+    font-size: 1rem;
+  }
+}
+
 /* ...rest of existing code... */
+
+// ...existing code...
+
+/* User section responsive styles */
+.user-section-container {
+    transition: all 0.3s ease;
+    max-width: 100%;
+}
+
+/* Compact design for all views */
+#user-view, #guest-view {
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+}
+
+#user-avatar {
+    width: 2.5rem;  /* Smaller avatar */
+    height: 2.5rem;
+    font-size: 1rem;
+}
+
+/* Button adjustments */
+#signin-btn,
+#email-signup-btn,
+#google-signin-btn {
+    padding: 0.5rem;
+    height: auto;
+    min-height: 2.5rem;
+    font-size: 0.875rem;
+}
+
+/* Portrait mode */
+@media (orientation: portrait) {
+    .user-section-container {
+        position: absolute;
+        bottom: 4rem;
+        right: 1rem;
+        width: auto;
+        max-width: 300px;
+        background: white;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        border-radius: 0.5rem;
+        transform: translateX(120%);
+        z-index: 1000;
+    }
+
+    .user-section-container.expanded {
+        transform: translateX(0);
+    }
+
+    .grid.grid-cols-2 {
+        grid-gap: 0.5rem;
+    }
+
+    #sync-status, #online-status {
+        font-size: 0.75rem;
+    }
+}
+
+/* Landscape mode */
+@media (orientation: landscape) {
+    .user-section-container {
+        margin-top: 1rem;
+    }
+
+    #username-display {
+        font-size: 1rem;
+    }
+
+    #email-display {
+        font-size: 0.75rem;
+    }
+
+    .grid.grid-cols-2 {
+        grid-gap: 0.25rem;
+    }
+}
+
+/* Ensure buttons and inputs are easily tappable */
+button, input {
+    min-height: 2.5rem;
+}
+
+/* Add spacing below page info */
+#page-info-controls {
+    display: block;
+    margin-bottom: 1.5rem;  /* Add 1.5rem (24px) space below */
+    
+}
+
+.w-full.bg-gray-200.rounded-full {
+    margin-bottom: 1.5rem;  /* Add space below progress bar */
+}
+
+// ...existing code...
+
+/* Ensure online status fits nicely */
+#online-status {
+    font-size: 0.7rem;
+    line-height: 1;
+    padding: 2px 4px;
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 9999px;
+}
+
+// ...rest of existing code...
 
