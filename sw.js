@@ -9,20 +9,24 @@ const FIREBASE_DOMAINS = [
 // Add valid schemes
 const VALID_SCHEMES = ['http:', 'https:'];
 
+const ASSETS_TO_CACHE = [
+  '/',
+  '/index.html',
+  '/style.css',
+  '/main.js',
+  '/auth.js',
+  '/pdfManager.js',
+  '/assets/star.svg',
+  '/assets/three-dash.svg',
+  '/assets/quran-icon.png',
+  '/assets/lib/tailwind.min.css',  // Add Tailwind CSS to cache
+  // ...existing cache items...
+];
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll([
-        '/',
-        '/index.html',
-        '/style.css',
-        '/main.js',
-        '/auth.js',
-        '/pdfManager.js',
-        '/assets/star.svg',
-        '/assets/three-dash.svg',
-        '/assets/quran-icon.png'
-      ]);
+      return cache.addAll(ASSETS_TO_CACHE);
     })
   );
 });

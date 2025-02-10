@@ -122,17 +122,18 @@ export const updateLastRead = async (userId, pageNum) => {
     if (!userId) return false;
     
     try {
-        await ensureUserDoc(userId);
         const userRef = doc(db, 'users', userId);
+        // Store as number, not string
+        const pageNumber = parseInt(pageNum, 10);
         await setDoc(userRef, { 
-            lastRead: pageNum,
+            lastRead: pageNumber,
             updatedAt: new Date().toISOString()
         }, { merge: true });
         
         return true;
     } catch (error) {
         console.error("Error updating last page:", error);
-        return false;
+        throw error; // Let the caller handle the error
     }
 };
 
@@ -141,14 +142,20 @@ export const getLastRead = async (userId) => {
     if (!userId) return null;
     
     try {
-        await ensureUserDoc(userId);
         const userRef = doc(db, 'users', userId);
         const docSnap = await getDoc(userRef);
-        // Get lastRead from the user document directly
-        return docSnap.exists() ? docSnap.data().lastRead || 1 : 1;
+        
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            // Important: Convert to number and ensure it's valid
+            const lastReadPage = parseInt(data.lastRead || data.lastpage, 10);
+            console.log('[Firestore] Got last read page:', lastReadPage);
+            return lastReadPage || 1;
+        }
+        return 1;
     } catch (error) {
         console.error("Error getting last page:", error);
-        return 1; // Return 1 as default page
+        return 1;
     }
 };
 

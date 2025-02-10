@@ -1,4 +1,4 @@
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js';
+import { auth, db, rtdb } from './firebaseConfig.js';
 import { 
     signInWithPopup, 
     GoogleAuthProvider, 
@@ -10,19 +10,9 @@ import {
 } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js';
 import { doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js';
 import { ref, onValue } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js';
-import { auth, db, rtdb } from './firebaseConfig.js';
 import { showToast } from './utils.js';
 import { getBookmarks, getLastRead } from './firestoreManager.js';
-
-export const firebaseConfig = {
-  apiKey: "AIzaSyCz7CE73lGtT0WweoXuBYxGX58hKAXEK8o",
-  authDomain: "ihafeziquran.firebaseapp.com",
-  projectId: "ihafeziquran",
-  databaseURL: "https://ihafeziquran-default-rtdb.firebaseio.com",
-  storageBucket: "ihafeziquran.firebasestorage.app",
-  messagingSenderId: "961267141827",
-  appId: "1:961267141827:web:9cdbaa6cc2aaf1ffad6676"
-};
+import { setPageNum, initializePdf } from './pdfManager.js';
 
 // Remove these lines since we're importing them from firebaseConfig.js
 // const app = window.firebaseApp || initializeApp(firebaseConfig);
@@ -264,51 +254,39 @@ const updateUIForUser = (user) => {
     }
 };
 
-// Update the auth state observer
+// Update the auth state observer with better last page handling
 auth.onAuthStateChanged(async (user) => {
-    console.log('[Auth] Auth state changed:', user?.uid); // Debug log
+    console.log('[Auth] Auth state changed:', user?.uid);
     
     if (user) {
         try {
-            // First ensure user document exists
-            const userRef = doc(db, 'users', user.uid);
-            await setDoc(userRef, {
-                email: user.email,
-                updatedAt: new Date().toISOString()
-            }, { merge: true });
-
+            // Update UI first
             updateUIForUser(user);
 
-            // Load bookmarks first
-            console.log('[Auth] Loading bookmarks for user:', user.uid); // Debug log
-            const bookmarks = await getBookmarks(user.uid);
-            console.log('[Auth] Loaded bookmarks:', bookmarks); // Debug log
-            
-            // Set global bookmarks
-            window.bookmarks = bookmarks || {};
-            console.log('[Auth] Set window.bookmarks:', window.bookmarks); // Debug log
-            
-            // Force bookmark list update
-            if (typeof window.updateBookmarkList === 'function') {
-                console.log('[Auth] Calling updateBookmarkList'); // Debug log
-                window.updateBookmarkList();
-            } else {
-                console.warn('[Auth] updateBookmarkList not available'); // Debug log
+            // Load last read page first
+            console.log('[Auth] Getting last read page...');
+            const lastReadPage = await getLastRead(user.uid);
+            console.log('[Auth] Last read page:', lastReadPage);
+
+            if (lastReadPage && typeof lastReadPage === 'number') {
+                console.log('[Auth] Setting page to:', lastReadPage);
+                // Set the page number and reinitialize PDF
+                setPageNum(lastReadPage);
+                await initializePdf(lastReadPage);
             }
 
-            // Then load last read page
-            const lastReadPage = await getLastRead(user.uid);
-            if (lastReadPage) {
-                localStorage.setItem('lastPage', lastReadPage);
-                if (typeof window.queueRenderPage === 'function') {
-                    window.queueRenderPage(lastReadPage);
-                }
+            // Then load bookmarks
+            const bookmarks = await getBookmarks(user.uid);
+            window.bookmarks = bookmarks || {};
+            
+            if (typeof window.updateBookmarkList === 'function') {
+                window.updateBookmarkList();
             }
 
             showToast('Data synced successfully');
         } catch (error) {
             console.error('[Auth] Error:', error);
-            showToast('Error loading bookmarks');
+            showToast('Error syncing data');
         }
     } else {
         // Reset UI for guest

@@ -18,7 +18,9 @@ import {
     toggleFullScreen, 
     updateStarColor,
     handleModalKeyDown,
-    handleMouseUpDown // Import it from pdfManager.js
+    handleMouseUpDown, // Import it from pdfManager.js
+    setPageNum,
+    initializePdf
 } from './pdfManager.js';
 import { signUpWithEmail, signInWithEmail, showSigninModal, showSignupModal, closeSigninModal, closeSignupModal, handleSignin, handleSignup, handleGoogleSignIn, handlePasswordReset } from './auth.js';
 import { showToast } from './utils.js';
@@ -79,36 +81,6 @@ const loadPDFWithRetry = async (url, retries = 3, delay = 1000) => {
     throw lastError;
 };
 
-const initializePdf = async () => {
-  try {
-    await openDB();
-    pdfDoc = await loadPDFWithRetry(pdfPath);
-    setPdfDoc(pdfDoc);
-    renderPage(pageNum, scale);
-    document.getElementById('loading').style.display = 'none';
-  } catch (error) {
-    console.error('Error loading PDF:', error);
-    const loadingDiv = document.getElementById('loading');
-    if (loadingDiv) {
-      loadingDiv.innerHTML = `
-        <div class="text-red-500 text-center p-4">
-          <div class="text-xl mb-2">Error loading PDF</div>
-          <p>Please ensure the PDF file exists at: ${pdfPath}</p>
-          <p>Typical locations:</p>
-          <ul class="text-left list-disc ml-8 mt-2">
-            <li>/public/assets/book.pdf</li>
-            <li>/assets/book.pdf</li>
-          </ul>
-          <p class="text-sm mt-4 text-gray-600">${error.message}</p>
-          <button onclick="retryLoadPDF()" class="bg-blue-500 text-white px-4 py-2 rounded mt-4">
-            Retry Loading
-          </button>
-        </div>
-      `;
-    }
-  }
-};
-
 const retryLoadPDF = () => {
   document.getElementById('loading').innerHTML = `
     <div class="spinner"></div>
@@ -122,7 +94,15 @@ const retryLoadPDF = () => {
 
 window.retryLoadPDF = retryLoadPDF;
 
-initializePdf();
+const startApp = async () => {
+    const lastPage = localStorage.getItem('lastPage');
+    if (lastPage) {
+        setPageNum(parseInt(lastPage, 10));
+    }
+    await initializePdf();
+};
+
+startApp();
 
 let xDown = null, yDown = null, focusedElement = null, debounceTimeout;
 let wakeLock = null;

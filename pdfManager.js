@@ -18,6 +18,9 @@ let xDown = null, yDown = null; // Add these variables at the top of the file
 let touchLock = false;  // added flag to prevent double triggering
 let debounceTimeout; // Add this at the top with other variable declarations
 
+// Add this state variable at the top
+let isPdfReady = false;
+
 const openDB = () => new Promise((resolve, reject) => {
     const request = indexedDB.open(dbName, 1);
     request.onupgradeneeded = (event) => {
@@ -182,25 +185,21 @@ const deleteBookmark = async (page) => {
     const bookmark = bookmarks[page];
     if (!bookmark) return;
 
-    // If user is signed in and bookmark has an ID, try to delete from Firestore
-    if (auth.currentUser && bookmark.id) {
-        try {
-            const success = await deleteFirestoreBookmark(auth.currentUser.uid, bookmark.id);
-            if (!success) {
-                showToast('Error deleting bookmark from cloud');
-                // Continue with local deletion even if cloud deletion fails
-            }
-        } catch (error) {
-            console.error('Error deleting from Firestore:', error);
-            // Continue with local deletion
-        }
-    }
-
-    // Always delete from local storage
+    // Delete locally first
     delete bookmarks[page];
     localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
     updateBookmarkList();
     showToast('Bookmark deleted');
+
+    // Then sync with server
+    if (auth.currentUser && bookmark.id) {
+        try {
+            await deleteFirestoreBookmark(auth.currentUser.uid, bookmark.id);
+        } catch (error) {
+            console.error('Error syncing bookmark deletion:', error);
+            showToast('Error syncing deletion');
+        }
+    }
 };
 
 const closeModal = () => {
@@ -291,22 +290,6 @@ const renderPage = (num, scale) => {
     if (!pdfDoc) return;
     if (renderTask) renderTask.cancel();
     pageIsRendering = true;
-    const loadingElement = document.getElementById('loading');
-    if (loadingElement) loadingElement.style.display = 'flex';
-
-    // Attempt to quickly show a cached render if available
-    getCachedPage(num).then(cachedDataUrl => {
-        if (cachedDataUrl) {
-            const img = new Image();
-            img.src = cachedDataUrl;
-            img.onload = () => {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                canvas.style.visibility = 'visible';
-                if (loadingElement) loadingElement.style.display = 'none';
-            };
-        }
-    });
 
     canvas.style.visibility = 'hidden'; // Hide the canvas until rendering is complete
     pdfDoc.getPage(num).then((page) => {
@@ -326,7 +309,6 @@ const renderPage = (num, scale) => {
         renderTask.promise.then(() => {
             pageIsRendering = false;
             canvas.style.visibility = 'visible'; // Show the canvas after rendering is complete
-            if (loadingElement) loadingElement.style.display = 'none';
             if (pageNumPending !== null) {
                 renderPage(pageNumPending, scale);
                 pageNumPending = null;
@@ -354,23 +336,60 @@ const renderPage = (num, scale) => {
     });
 };
 
-const queueRenderPage = async (num) => {
-    pageNum = num;
-    localStorage.setItem('lastPage', pageNum);
-    
-    // Sync with Firestore if user is signed in
-    if (auth.currentUser) {
-        try {
-            await updateLastRead(auth.currentUser.uid, pageNum);
-        } catch (error) {
-            console.error('Error updating last read page:', error);
-        }
+// Move this function definition before loadPDFWithRetry
+const updateLoadingProgress = (progress) => {
+    const progressBar = document.querySelector('.loading-progress-bar');
+    const loadingText = document.querySelector('.loading-text');
+    if (progressBar && loadingText) {
+        progressBar.style.transition = 'width 0.5s ease';
+        const percentage = Math.min(Math.round(progress * 100), 100);
+        progressBar.style.width = `${percentage}%`;
+        loadingText.textContent = 'Please wait while we prepare your document...';
     }
+};
+
+// Update queueRenderPage to handle force render
+const queueRenderPage = async (num, force = false) => {
+    if (!isPdfReady || !pdfDoc) {
+        const retryRender = () => {
+            if (isPdfReady && pdfDoc) {
+                queueRenderPage(num, force);
+            } else {
+                setTimeout(retryRender, 1000);
+            }
+        };
+        retryRender();
+        return;
+    }
+
+    const newPageNum = parseInt(num, 10);
     
-    if (pageIsRendering) {
-        pageNumPending = num;
-    } else {
-        renderPage(num, scale);
+    if (isNaN(newPageNum) || newPageNum < 1 || newPageNum > pdfDoc.numPages) {
+        console.error('Invalid page number:', num);
+        return;
+    }
+
+    // Only proceed if it's a different page or forced
+    if (newPageNum !== pageNum || force) {
+        pageNum = newPageNum;
+        localStorage.setItem('lastPage', pageNum.toString());
+        
+        // Render the page immediately
+        if (pageIsRendering) {
+            pageNumPending = pageNum;
+        } else {
+            renderPage(pageNum, scale);
+        }
+
+        // Then sync with server if user is logged in
+        if (auth.currentUser) {
+            try {
+                await updateLastRead(auth.currentUser.uid, pageNum);
+            } catch (error) {
+                console.error('Error syncing last read page:', error);
+                showToast('Error syncing progress');
+            }
+        }
     }
 };
 
@@ -384,11 +403,21 @@ const resetCanvas = () => {
     canvas.height = 0;
 };
 
-const loadPDFWithRetry = async (url, retries = 3, delay = 1000) => {
-    let lastError;
-    
-    for (let i = 0; i < retries; i++) {
+const loadPDFWithRetry = async (url, retries = 10, delay = 3000) => {
+    const loadingElement = document.getElementById('loading');
+    if (loadingElement) {
+        loadingElement.innerHTML = `
+            <div class="text-center p-4">
+                <div class="spinner"></div>
+                <p>Loading...</p>
+            </div>
+        `;
+        loadingElement.style.display = 'flex';
+    }
+
+    while (true) {
         try {
+            await new Promise(resolve => setTimeout(resolve, delay));
             const loadingTask = pdfjsLib.getDocument({
                 url: url,
                 cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@2.16.105/cmaps/',
@@ -396,51 +425,46 @@ const loadPDFWithRetry = async (url, retries = 3, delay = 1000) => {
                 enableXfa: true,
                 disableRange: false,
                 disableStream: false,
-                disableAutoFetch: false
+                disableAutoFetch: false,
+                rangeChunkSize: 65536
             });
 
-            loadingTask.onProgress = function(data) {
-                const progress = data.loaded / data.total;
-                updateLoadingProgress(progress);
-            };
-
             const doc = await loadingTask.promise;
-            console.log('PDF loaded successfully');
+            isPdfReady = true;
+            if (loadingElement) {
+                loadingElement.style.display = 'none';
+            }
             return doc;
         } catch (error) {
-            lastError = error;
-            console.log(`Attempt ${i + 1} failed:`, error);
-            if (i < retries - 1) {
-                await new Promise(resolve => setTimeout(resolve, delay));
-            }
+            await new Promise(resolve => setTimeout(resolve, delay));
         }
     }
-    throw lastError;
 };
 
-const initializePdf = async () => {
-  try {
-    await openDB();
-    pdfDoc = await loadPDFWithRetry('./assets/book.pdf');
-    setPdfDoc(pdfDoc);
-    renderPage(pageNum, scale);
-    document.getElementById('loading').style.display = 'none';
-  } catch (error) {
-    console.error('Error loading PDF:', error);
-    const loadingDiv = document.getElementById('loading');
-    if (loadingDiv) {
-      loadingDiv.innerHTML = `
-        <div class="text-red-500 text-center p-4">
-          <div class="text-xl mb-2">Error loading PDF</div>
-          <p>Please check your internet connection</p>
-          <p class="text-sm mt-2">${error.message}</p>
-          <button onclick="retryLoadPDF()" class="bg-blue-500 text-white px-4 py-2 rounded mt-4">
-            Retry Loading
-          </button>
-        </div>
-      `;
+const setPageNum = (num) => {
+    pageNum = parseInt(num, 10);
+    localStorage.setItem('lastPage', pageNum.toString());
+    return pageNum;
+};
+
+const initializePdf = async (initialPage = null) => {
+    try {
+        await openDB();
+        pdfDoc = await loadPDFWithRetry('./assets/book.pdf');
+        setPdfDoc(pdfDoc);
+        
+        if (initialPage) {
+            setPageNum(initialPage);
+        }
+        
+        if (isPdfReady && pdfDoc) {
+            await renderPage(pageNum, scale);
+            zoomIn();
+        }
+    } catch (error) {
+        // Silently retry initialization
+        setTimeout(() => initializePdf(initialPage), 2000);
     }
-  }
 };
 
 // Add this before the DOMContentLoaded event listener
@@ -511,8 +535,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (zoomInBtn) {
         zoomInBtn.addEventListener('click', () => {
-            scale += 0.25;
-            queueRenderPage(pageNum);
+            if (isPdfReady) {
+                zoomIn();
+            } else {
+                console.warn('Waiting for PDF to load before zooming');
+            }
         });
     }
 
@@ -567,10 +594,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const pdfViewer = document.getElementById('pdf-render');
     if (pdfViewer) {
         pdfViewer.style.zIndex = '1';
-        pdfViewer.addEventListener('wheel', handleWheel, { passive: false });
+        // Update wheel event listener to be passive
+        pdfViewer.addEventListener('wheel', handleWheel, { 
+            passive: true,
+            capture: false 
+        });
         pdfViewer.addEventListener('mousedown', handleMouseUpDown); // Use the local reference
         pdfViewer.ondblclick = toggleFullScreen;
     }
+    
+    // Initialize bookmarks
+    window.bookmarks = window.bookmarks || {};
+    updateBookmarkList();
 });
 
 const jumpToPage = () => {
@@ -607,7 +642,21 @@ const showPrevPage = () => {
     queueRenderPage(pageNum);
 };
 
+// Update zoomIn to handle initialization state better
 const zoomIn = () => {
+    if (!isPdfReady || !pdfDoc) {
+        // Queue zoom for when PDF is ready instead of warning
+        const checkAndZoom = () => {
+            if (isPdfReady && pdfDoc) {
+                scale += 0.25;
+                queueRenderPage(pageNum);
+            } else {
+                setTimeout(checkAndZoom, 500);
+            }
+        };
+        checkAndZoom();
+        return;
+    }
     scale += 0.25;
     queueRenderPage(pageNum);
 };
@@ -668,7 +717,9 @@ export {
     toggleBookmarks,
     handleModalKeyDown, // Add this line
     handleWheel, // Add this line
-    handleMouseUpDown // Add this line
+    handleMouseUpDown, // Add this line
+    setPageNum, // Add this line
+    initializePdf // Add this line
 };
 
 // Attach functions to the global scope for inline event handlers:
