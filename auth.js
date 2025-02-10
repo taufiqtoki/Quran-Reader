@@ -256,37 +256,18 @@ const updateUIForUser = (user) => {
 
 // Update the auth state observer with better last page handling
 auth.onAuthStateChanged(async (user) => {
-    console.log('[Auth] Auth state changed:', user?.uid);
-    
     if (user) {
-        try {
-            // Update UI first
-            updateUIForUser(user);
-
-            // Load last read page first
-            console.log('[Auth] Getting last read page...');
-            const lastReadPage = await getLastRead(user.uid);
-            console.log('[Auth] Last read page:', lastReadPage);
-
-            if (lastReadPage && typeof lastReadPage === 'number') {
-                console.log('[Auth] Setting page to:', lastReadPage);
-                // Set the page number and reinitialize PDF
-                setPageNum(lastReadPage);
-                await initializePdf(lastReadPage);
-            }
-
-            // Then load bookmarks
-            const bookmarks = await getBookmarks(user.uid);
-            window.bookmarks = bookmarks || {};
-            
-            if (typeof window.updateBookmarkList === 'function') {
-                window.updateBookmarkList();
-            }
-
-            showToast('Data synced successfully');
-        } catch (error) {
-            console.error('[Auth] Error:', error);
-            showToast('Error syncing data');
+        updateUIForUser(user);
+        const lastReadPage = await getLastRead(user.uid);
+        if (lastReadPage && typeof lastReadPage === 'number') {
+            setPageNum(lastReadPage);
+            await initializePdf(lastReadPage);
+        }
+        
+        const bookmarks = await getBookmarks(user.uid);
+        window.bookmarks = bookmarks || {};
+        if (typeof window.updateBookmarkList === 'function') {
+            window.updateBookmarkList();
         }
     } else {
         // Reset UI for guest

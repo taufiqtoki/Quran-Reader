@@ -69,12 +69,8 @@ const deleteCachedPage = (page) => {
 
 const updateBookmarkList = () => {
     const bookmarkList = document.getElementById('bookmark-list');
-    if (!bookmarkList) {
-        console.error('Bookmark list element not found');
-        return;
-    }
+    if (!bookmarkList) return;
 
-    console.log('Updating bookmark list with:', window.bookmarks); // Debug log
     bookmarkList.innerHTML = '';
     
     Object.entries(window.bookmarks || {}).sort(([a], [b]) => parseInt(a) - parseInt(b)).forEach(([page, bookmark]) => {
@@ -471,12 +467,8 @@ const initializePdf = async (initialPage = null) => {
 const handleWheel = (event) => {
     if (!pdfDoc) return;
     
-    // Prevent default to avoid page scrolling while viewing PDF
-    event.preventDefault();
-    
     if (!event.deltaY) return;
     
-    // Add debounce to prevent rapid firing
     clearTimeout(debounceTimeout);
     debounceTimeout = setTimeout(() => {
         if (event.deltaY > 0) {
@@ -527,9 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (nextPageBtn) {
         nextPageBtn.addEventListener('click', () => {
-            if (pageNum >= pdfDoc.numPages) return;
-            pageNum++;
-            queueRenderPage(pageNum);
+            showNextPage();  // Changed from nested logic to direct call
         });
     }
 
@@ -594,18 +584,46 @@ document.addEventListener('DOMContentLoaded', () => {
     const pdfViewer = document.getElementById('pdf-render');
     if (pdfViewer) {
         pdfViewer.style.zIndex = '1';
-        // Update wheel event listener to be passive
         pdfViewer.addEventListener('wheel', handleWheel, { 
-            passive: true,
-            capture: false 
+            passive: true  // Keep passive true but remove capture: false
         });
-        pdfViewer.addEventListener('mousedown', handleMouseUpDown); // Use the local reference
-        pdfViewer.ondblclick = toggleFullScreen;
+        // ...rest of event listeners...
     }
+    
+    // Add CSS to prevent default scrolling on the PDF viewer
+    pdfViewer.style.overflowY = 'hidden';
+    pdfViewer.style.touchAction = 'none';
+    
+    // ...rest of existing code...
+    
+    pdfViewer.addEventListener('mousedown', handleMouseUpDown); // Use the local reference
+    pdfViewer.ondblclick = toggleFullScreen;
     
     // Initialize bookmarks
     window.bookmarks = window.bookmarks || {};
     updateBookmarkList();
+
+    // Update button handlers
+    const prevPageBtnControl = document.getElementById('prev-page-btn');
+    const nextPageBtnControl = document.getElementById('next-page-btn');
+
+    // Navigation buttons
+    [prevPageBtn, prevPageBtnControl].forEach(btn => {
+        if (btn) btn.addEventListener('click', showPrevPage);
+    });
+
+    [nextPageBtn, nextPageBtnControl].forEach(btn => {
+        if (btn) btn.addEventListener('click', showNextPage);
+    });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowRight' || event.key === 'PageDown') {
+            showNextPage();
+        } else if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
+            showPrevPage();
+        }
+    });
 });
 
 const jumpToPage = () => {
@@ -631,15 +649,15 @@ const toggleFullScreen = () => {
 };
 
 const showNextPage = () => {
-    if (pageNum >= pdfDoc.numPages) return;
+    if (!pdfDoc || pageNum >= pdfDoc.numPages) return;
     pageNum++;
-    queueRenderPage(pageNum);
+    queueRenderPage(pageNum, true); // Force render with true
 };
 
 const showPrevPage = () => {
-    if (pageNum <= 1) return;
+    if (!pdfDoc || pageNum <= 1) return;
     pageNum--;
-    queueRenderPage(pageNum);
+    queueRenderPage(pageNum, true); // Force render with true
 };
 
 // Update zoomIn to handle initialization state better

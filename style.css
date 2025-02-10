@@ -314,6 +314,8 @@ body, html { user-select: none; height: 100%; margin: 0; }
   justify-content: center;
   align-items: center;
   overflow: hidden;
+  overscroll-behavior: contain;
+  touch-action: none;
 }
 
 #control-section .three-dash-button {

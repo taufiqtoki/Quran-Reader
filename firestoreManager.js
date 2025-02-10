@@ -39,29 +39,18 @@ export const addBookmark = async (userId, name, page) => {
 
 // Get all bookmarks
 export const getBookmarks = async (userId) => {
-    console.log('[Firestore] Getting bookmarks for user:', userId); // Debug log
-    
     if (!userId) {
-        const localBookmarks = JSON.parse(localStorage.getItem('bookmarks') || '{}');
-        console.log('[Firestore] No userId, returning local bookmarks:', localBookmarks);
-        return localBookmarks;
+        return JSON.parse(localStorage.getItem('bookmarks') || '{}');
     }
 
     try {
         await ensureUserDoc(userId);
-        console.log('[Firestore] User doc ensured'); // Debug log
-        
         const bookmarksRef = collection(db, 'users', userId, 'bookmarks');
-        console.log('[Firestore] Getting bookmarks from collection:', bookmarksRef.path); // Debug log
-        
         const querySnapshot = await getDocs(bookmarksRef);
-        console.log('[Firestore] Got querySnapshot, size:', querySnapshot.size); // Debug log
         
         const bookmarks = {};
-        
         querySnapshot.forEach(doc => {
             const data = doc.data();
-            console.log('[Firestore] Processing bookmark:', { id: doc.id, data }); // Debug log
             bookmarks[data.page] = {
                 name: data.name,
                 id: doc.id,
@@ -69,22 +58,14 @@ export const getBookmarks = async (userId) => {
             };
         });
         
-        console.log('[Firestore] Final bookmarks object:', bookmarks); // Debug log
-        
-        // Update local storage and global state
         localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
         if (typeof window !== 'undefined') {
             window.bookmarks = bookmarks;
-            console.log('[Firestore] Updated window.bookmarks:', window.bookmarks); // Debug log
         }
         
         return bookmarks;
     } catch (error) {
-        console.error('[Firestore] Error getting bookmarks:', error);
-        const cached = localStorage.getItem('bookmarks');
-        const parsedCache = cached ? JSON.parse(cached) : {};
-        console.log('[Firestore] Returning cached bookmarks:', parsedCache); // Debug log
-        return parsedCache;
+        return JSON.parse(localStorage.getItem('bookmarks') || '{}');
     }
 };
 
