@@ -1,4 +1,4 @@
-import { doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js';
+import { doc, setDoc, getDoc, collection, addDoc, getDocs, deleteDoc, query, where, updateDoc, runTransaction } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js';
 import { db } from './firebaseConfig.js';
 
 // First, ensure user's document exists
@@ -22,18 +22,42 @@ const ensureUserDoc = async (userId) => {
 
 // Add a bookmark
 export const addBookmark = async (userId, name, page) => {
+    if (!userId) throw new Error('User ID is required');
+    
     try {
         await ensureUserDoc(userId);
         const bookmarksRef = collection(db, 'users', userId, 'bookmarks');
-        const docRef = await addDoc(bookmarksRef, {
-            name,
-            page,
-            createdAt: new Date().toISOString()
+        
+        // Use transaction to prevent race conditions
+        return await runTransaction(db, async (transaction) => {
+            // Check for existing bookmark with same name or page
+            const nameQuery = query(bookmarksRef, where('name', '==', name));
+            const pageQuery = query(bookmarksRef, where('page', '==', page));
+            
+            const [nameSnapshot, pageSnapshot] = await Promise.all([
+                getDocs(nameQuery),
+                getDocs(pageQuery)
+            ]);
+            
+            if (!nameSnapshot.empty || !pageSnapshot.empty) {
+                // Return existing bookmark ID if found
+                const existingDoc = nameSnapshot.docs[0] || pageSnapshot.docs[0];
+                return existingDoc.id;
+            }
+
+            // Create new bookmark only if no duplicates found
+            const newBookmarkRef = doc(bookmarksRef);
+            transaction.set(newBookmarkRef, {
+                name,
+                page,
+                createdAt: new Date().toISOString()
+            });
+            
+            return newBookmarkRef.id;
         });
-        return docRef.id;
     } catch (error) {
-        console.error("Error adding bookmark:", error);
-        return false;
+        console.error("Error managing bookmark:", error);
+        throw error;
     }
 };
 
@@ -142,13 +166,38 @@ export const getLastRead = async (userId) => {
 
 // Add this new function to delete a bookmark
 export const deleteBookmark = async (userId, bookmarkId) => {
+    console.log('Deleting bookmark:', { userId, bookmarkId });
+    
+    if (!userId || !bookmarkId) {
+        console.error('Missing required params:', { userId, bookmarkId });
+        return false;
+    }
+    
     try {
-        await ensureUserDoc(userId);
-        const bookmarkRef = doc(db, 'users', userId, 'bookmarks', bookmarkId);
+        const bookmarksRef = collection(db, 'users', userId, 'bookmarks');
+        
+        // First check if the bookmark exists
+        const bookmarkRef = doc(bookmarksRef, bookmarkId);
+        const bookmarkDoc = await getDoc(bookmarkRef);
+        
+        if (!bookmarkDoc.exists()) {
+            console.log('Bookmark not found, searching by page...');
+            // If not found by ID, try to find by page
+            const page = parseInt(bookmarkId, 10);
+            if (!isNaN(page)) {
+                const q = query(bookmarksRef, where('page', '==', page));
+                const querySnapshot = await getDocs(q);
+                await Promise.all(querySnapshot.docs.map(doc => deleteDoc(doc.ref)));
+                return true;
+            }
+            return false;
+        }
+
         await deleteDoc(bookmarkRef);
+        console.log('Bookmark deleted successfully');
         return true;
     } catch (error) {
-        console.error("Error deleting bookmark:", error);
-        return false;
+        console.error('Firestore deletion error:', error);
+        throw error;
     }
 };

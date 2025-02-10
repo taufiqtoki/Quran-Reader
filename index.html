@@ -10,32 +10,40 @@
   <title>Al Quranul Kareem</title>
   <link rel="icon" type="image/svg+xml" href="./assets/quran-icon.png">
   <link rel="apple-touch-icon" sizes="180x180" href="./assets/quran-icon.png">
-  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet" onerror="this.onerror=null;this.href='./assets/lib/tailwind.min.css';">
-  <link rel="preload" href="./assets/lib/tailwind.min.css" as="style">
+  
+  <!-- Update Tailwind CSS loading strategy -->
+  <!-- Primary CDN with local fallback -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" 
+        rel="stylesheet" 
+        crossorigin="anonymous"
+        onerror="document.getElementById('tailwind-local').setAttribute('href', './assets/lib/tailwind.min.css')">
+  
+  <!-- Local fallback with no preload -->
+  <link id="tailwind-local" 
+        rel="stylesheet" 
+        href=""
+        media="print" 
+        onload="this.media='all'">
+
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
   <link href="./style.css" rel="stylesheet">
+  
+  <!-- Load PDF.js first -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
   <script>
+    // Initialize PDF.js immediately
+    window.pdfjsLib = window.pdfjsLib || {};
+    pdfjsLib.GlobalWorkerOptions = pdfjsLib.GlobalWorkerOptions || {};
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
   </script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', function() {
-        navigator.serviceWorker.register('./sw.js')
-          .then(registration => {
-            console.log('Service Worker registered with scope:', registration.scope);
-          })
-          .catch(error => {
-            console.log('Service Worker registration failed:', error);
-          });
-      });
-    }
-  </script>
-  <script type="module" src="./firebaseConfig.js"></script>
 
-  <!-- Load your application scripts -->
-  <script src="./main.js" type="module" defer></script>
-  
+  <!-- Add type="module" to all module scripts -->
+  <script type="module" src="./firebaseConfig.js"></script>
+  <script type="module" src="./main.js"></script>
+  <script type="module" src="./utils.js"></script>
+  <script type="module" src="./firestoreManager.js"></script>
+  <script type="module" src="./auth.js"></script>
+
   <!-- Add autocomplete attributes to password inputs -->
   <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -48,14 +56,20 @@
   <script>
     // Load PDF.js from CDN with fallback
     function loadScript(src, fallback) {
-      const script = document.createElement('script');
-      script.src = src;
-      script.onerror = function() {
-        const fallbackScript = document.createElement('script');
-        fallbackScript.src = fallback;
-        document.head.appendChild(fallbackScript);
-      };
-      document.head.appendChild(script);
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = resolve;
+        script.onerror = () => {
+          console.warn(`Failed to load ${src}, trying fallback`);
+          const fallbackScript = document.createElement('script');
+          fallbackScript.src = fallback;
+          fallbackScript.onload = resolve;
+          fallbackScript.onerror = reject;
+          document.head.appendChild(fallbackScript);
+        };
+        document.head.appendChild(script);
+      });
     }
 
     // Load Font Awesome with fallback
@@ -72,28 +86,28 @@
       document.head.appendChild(link);
     }
 
-    // Load resources with fallbacks
-    loadScript(
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js',
-      './assets/lib/pdf.min.js'
-    );
+    // Load dependencies in order
+    async function loadDependencies() {
+      try {
+        await loadScript(
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js',
+          './assets/lib/pdf.min.js'
+        );
+        // Initialize PDF.js after loading
+        window.pdfjsLib = window.pdfjsLib || {};
+        pdfjsLib.GlobalWorkerOptions = pdfjsLib.GlobalWorkerOptions || {};
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+      } catch (error) {
+        console.error('Failed to load PDF.js:', error);
+      }
+    }
+
+    loadDependencies();
     loadCSS(
       'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css',
       './assets/lib/fontawesome.min.css'
     );
     
-  </script>
-
-  <!-- Initialize PDF.js after ensuring it's loaded -->
-  <script>
-    function initPDFJS() {
-      if (typeof pdfjsLib !== 'undefined') {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-      } else {
-        setTimeout(initPDFJS, 100);
-      }
-    }
-    initPDFJS();
   </script>
 </head>
 <body class="bg-gray-100 h-screen">

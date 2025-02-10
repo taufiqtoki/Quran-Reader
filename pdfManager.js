@@ -21,6 +21,8 @@ let debounceTimeout; // Add this at the top with other variable declarations
 // Add this state variable at the top
 let isPdfReady = false;
 
+let pageChangeInProgress = false;
+
 const openDB = () => new Promise((resolve, reject) => {
     const request = indexedDB.open(dbName, 1);
     request.onupgradeneeded = (event) => {
@@ -72,7 +74,6 @@ const updateBookmarkList = () => {
     if (!bookmarkList) return;
 
     bookmarkList.innerHTML = '';
-    
     Object.entries(window.bookmarks || {}).sort(([a], [b]) => parseInt(a) - parseInt(b)).forEach(([page, bookmark]) => {
         if (bookmark) {
             const li = document.createElement('li');
@@ -117,25 +118,55 @@ const addBookmarkModal = () => {
     modal.removeAttribute('inert');
     document.addEventListener('keydown', handleModalKeyDown);
     document.addEventListener('click', handleModalClick, true);
-    startAutoSaveTimer(); // Start the auto-save timer
+    
+    // Don't start auto-save timer if save button exists
+    const saveButton = document.getElementById('save-bookmark');
+    if (!saveButton) {
+        startAutoSaveTimer();
+    }
+
+    // Cancel auto-save on input
+    const nameInput = document.getElementById('modal-bookmark-name');
+    nameInput.addEventListener('input', () => {
+        clearTimeout(autoSaveTimer);
+    });
 };
 
 const saveBookmark = async () => {
+    clearTimeout(autoSaveTimer);
+    
     const page = parseInt(document.getElementById('modal-page-number').value, 10);
     const name = document.getElementById('modal-bookmark-name').value.trim();
     if (!page || !name) return;
 
-    bookmarks[page] = { name };
-    
-    // Sync with Firestore if user is signed in
-    if (auth.currentUser) {
-        await addBookmark(auth.currentUser.uid, name, page);
+    // Check for existing bookmark with same name or page locally
+    const existingBookmark = Object.entries(window.bookmarks || {}).find(([p, b]) => 
+        b.name === name || parseInt(p) === page
+    );
+
+    if (existingBookmark) {
+        showToast('Bookmark already exists');
+        closeModal();
+        return;
     }
-    
-    updateBookmarkList();
-    closeModal();
-    updateStarColor();
-    showToast('Bookmark saved');
+
+    try {
+        // Save to Firestore first if user is logged in
+        let bookmarkId;
+        if (auth.currentUser) {
+            bookmarkId = await addBookmark(auth.currentUser.uid, name, page);
+        }
+
+        // Only save locally if Firestore operation succeeded or user is not logged in
+        window.bookmarks[page] = { name, id: bookmarkId };
+        localStorage.setItem('bookmarks', JSON.stringify(window.bookmarks));
+        updateBookmarkList();
+        closeModal();
+        showToast('Bookmark saved');
+    } catch (error) {
+        console.error('Error saving bookmark:', error);
+        showToast('Error saving bookmark');
+    }
 };
 
 const editBookmark = (page) => {
@@ -178,33 +209,47 @@ const confirmDeleteBookmark = (page) => {
 };
 
 const deleteBookmark = async (page) => {
-    const bookmark = bookmarks[page];
-    if (!bookmark) return;
+    console.log('Deleting bookmark:', { page, bookmark: window.bookmarks[page] });
+    const bookmark = window.bookmarks[page];
+    if (!bookmark) {
+        console.log('No bookmark found for page:', page);
+        return;
+    }
 
     // Delete locally first
-    delete bookmarks[page];
-    localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
-    updateBookmarkList();
-    showToast('Bookmark deleted');
-
-    // Then sync with server
+    delete window.bookmarks[page];
+    localStorage.setItem('bookmarks', JSON.stringify(window.bookmarks));
+    updateBookmarkList(); // Update UI immediately
+    
+    console.log('Bookmark deleted locally');
+    
+    // Then sync with server if user is signed in
     if (auth.currentUser && bookmark.id) {
         try {
+            console.log('Attempting server deletion:', bookmark.id);
             await deleteFirestoreBookmark(auth.currentUser.uid, bookmark.id);
+            console.log('Server deletion successful');
+            showToast('Bookmark deleted');
         } catch (error) {
-            console.error('Error syncing bookmark deletion:', error);
-            showToast('Error syncing deletion');
+            console.error('Server deletion failed:', error);
+            // Restore bookmark on server error
+            window.bookmarks[page] = bookmark;
+            localStorage.setItem('bookmarks', JSON.stringify(window.bookmarks));
+            updateBookmarkList();
+            showToast('Error deleting bookmark from server');
         }
+    } else {
+        showToast('Bookmark deleted');
     }
 };
 
 const closeModal = () => {
+    clearTimeout(autoSaveTimer); // Ensure timer is cleared on close
     const modal = document.getElementById('bookmark-modal');
     modal.classList.add('hidden');
     modal.setAttribute('inert', '');
     document.removeEventListener('keydown', handleModalKeyDown);
     document.removeEventListener('click', handleModalClick, true);
-    clearTimeout(autoSaveTimer); // Clear the auto-save timer
 };
 
 const closeConfirmDeleteModal = () => {
@@ -465,24 +510,15 @@ const initializePdf = async (initialPage = null) => {
 
 // Add this before the DOMContentLoaded event listener
 const handleWheel = (event) => {
-    if (!pdfDoc) return;
-    
+    if (!pdfDoc || pageChangeInProgress) return;
     if (!event.deltaY) return;
     
     clearTimeout(debounceTimeout);
     debounceTimeout = setTimeout(() => {
         if (event.deltaY > 0) {
-            // Scrolling down - next page
-            if (pageNum < pdfDoc.numPages) {
-                pageNum++;
-                queueRenderPage(pageNum);
-            }
+            showNextPage();
         } else {
-            // Scrolling up - previous page
-            if (pageNum > 1) {
-                pageNum--;
-                queueRenderPage(pageNum);
-            }
+            showPrevPage();
         }
     }, 300); // Increase debounce time to prevent rapid page changes
 };
@@ -649,15 +685,25 @@ const toggleFullScreen = () => {
 };
 
 const showNextPage = () => {
-    if (!pdfDoc || pageNum >= pdfDoc.numPages) return;
+    if (!pdfDoc || !isPdfReady || pageChangeInProgress) return;
+    if (pageNum >= pdfDoc.numPages) return;
+    
+    pageChangeInProgress = true;
     pageNum++;
-    queueRenderPage(pageNum, true); // Force render with true
+    queueRenderPage(pageNum, true).finally(() => {
+        pageChangeInProgress = false;
+    });
 };
 
 const showPrevPage = () => {
-    if (!pdfDoc || pageNum <= 1) return;
+    if (!pdfDoc || !isPdfReady || pageChangeInProgress) return;
+    if (pageNum <= 1) return;
+    
+    pageChangeInProgress = true;
     pageNum--;
-    queueRenderPage(pageNum, true); // Force render with true
+    queueRenderPage(pageNum, true).finally(() => {
+        pageChangeInProgress = false;
+    });
 };
 
 // Update zoomIn to handle initialization state better

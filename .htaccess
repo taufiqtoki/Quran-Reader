@@ -1,0 +1,7 @@
+
+AddType text/javascript .js
+AddType text/javascript .mjs
+
+<FilesMatch "\.(js|mjs)$">
+  Header set Content-Type "text/javascript"
+</FilesMatch>
