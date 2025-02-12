@@ -23,6 +23,11 @@ const PageState = {
     ERROR: 4
 };
 
+// Add these near the top with other state variables
+let totalCachedPages = 0;
+let totalPrefetchedPages = 0;
+let totalRenderedPages = 0;
+
 // Add this near the top with other state variables
 const loadQueue = {
     HIGH: 'high',
@@ -180,6 +185,8 @@ const getCachedPage = (page) => new Promise((resolve, reject) => {
 });
 
 const cachePage = (page, dataUrl) => {
+    if (!db) return; // Guard against db not being initialized
+    
     const transaction = db.transaction([storeName], 'readwrite');
     const store = transaction.objectStore(storeName);
     store.put({ page, dataUrl });
@@ -233,9 +240,10 @@ const updateBookmarkList = () => {
     updateStarColor();
 };
 
-const jumpToBookmark = (page) => {
-    pageNum = page;
-    queueRenderPage(pageNum);
+// Update the jumpToBookmark function
+const jumpToBookmark = async (page) => {
+    if (!pdfDoc || !isPdfReady) return;
+    await pageNavigationManager.changePage(parseInt(page, 10), { force: true });
 };
 
 const startAutoSaveTimer = () => {
@@ -766,7 +774,8 @@ const zoomIn = () => {
         const checkAndZoom = () => {
             if (isPdfReady && pdfDoc) {
                 scale += 0.25;
-                queueRenderPage(pageNum);
+                queueRenderPage(pageNum, true); // Force re-render
+                showToast('Image quality improved');
             } else {
                 setTimeout(checkAndZoom, 500);
             }
@@ -774,8 +783,10 @@ const zoomIn = () => {
         checkAndZoom();
         return;
     }
+    
     scale += 0.25;
-    queueRenderPage(pageNum);
+    queueRenderPage(pageNum, true); // Force re-render
+    showToast('Image quality improved');
 };
 
 const toggleBookmarks = () => {
@@ -811,6 +822,14 @@ const handleTouchMove = (evt) => {
         } else if (xDiff < -50) {
             goToPreviousPage();
         }
+    }
+};
+
+// Add the missing handlePageInputKeyDown function
+const handlePageInputKeyDown = (event) => {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        jumpToPage();
     }
 };
 
@@ -967,7 +986,8 @@ export {
     setPageNum,
     initializePdf,
     goToNextPage,
-    goToPreviousPage
+    goToPreviousPage,
+    handlePageInputKeyDown
 };
 
 // Single window object assignment
@@ -978,5 +998,14 @@ Object.assign(window, {
     goToPreviousPage,
     jumpToBookmark,
     editBookmark,
-    confirmDeleteBookmark
+    confirmDeleteBookmark,
+    // Add these functions to make them globally available
+    saveBookmark,
+    closeModal,
+    updateBookmarkList,
+    closeConfirmDeleteModal,
+    handleModalKeyDown,
+    handlePageInputKeyDown,
+    jumpToPage,
+    jumpToBookmark   // Ensure jumpToBookmark is explicitly added
 });
