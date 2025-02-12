@@ -34,6 +34,38 @@ self.addEventListener('install', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
   
+  // Special handling for PDF files
+  if (url.pathname.endsWith('.pdf')) {
+    event.respondWith(
+      caches.match(event.request)
+        .then(async (response) => {
+          if (response) return response;
+
+          try {
+            const networkResponse = await fetch(event.request, {
+              mode: 'cors',
+              credentials: 'omit',
+              headers: {
+                'Range': 'bytes=0-'
+              }
+            });
+            
+            if (!networkResponse || networkResponse.status !== 200) {
+              throw new Error('PDF fetch failed');
+            }
+
+            const cache = await caches.open(PDF_CACHE_NAME);
+            await cache.put(event.request, networkResponse.clone());
+            return networkResponse;
+          } catch (error) {
+            console.error('PDF fetch error:', error);
+            return new Response('PDF fetch failed', { status: 503 });
+          }
+        })
+    );
+    return;
+  }
+
   // Only cache requests with valid schemes and non-Firebase domains
   if (!VALID_SCHEMES.includes(url.protocol) || 
       FIREBASE_DOMAINS.some(domain => url.hostname.includes(domain))) {

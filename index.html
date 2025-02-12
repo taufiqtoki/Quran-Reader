@@ -36,6 +36,10 @@
     pdfjsLib.GlobalWorkerOptions = pdfjsLib.GlobalWorkerOptions || {};
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
   </script>
+  <!-- Update PDF.js loading -->
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsLib.GlobalWorkerOptions.workerSrc || 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+  </script>
 
   <!-- Add type="module" to all module scripts -->
   <script type="module" src="./firebaseConfig.js"></script>

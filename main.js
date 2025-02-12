@@ -3,8 +3,6 @@ import {
     setPdfDoc, 
     renderPage, 
     queueRenderPage, 
-    showPrevPage, 
-    showNextPage, 
     jumpToPage, 
     zoomIn, 
     updateBookmarkList, 
@@ -20,7 +18,9 @@ import {
     handleModalKeyDown,
     handleMouseUpDown, // Import it from pdfManager.js
     setPageNum,
-    initializePdf
+    initializePdf,
+    goToNextPage,
+    goToPreviousPage
 } from './pdfManager.js';
 import { signUpWithEmail, signInWithEmail, showSigninModal, showSignupModal, closeSigninModal, closeSignupModal, handleSignin, handleSignup, handleGoogleSignIn, handlePasswordReset } from './auth.js';
 import { showToast } from './utils.js';
@@ -151,13 +151,13 @@ const handleKeyDown = (event) => {
             controlSection.style.zIndex = '10'; // Ensure it appears over the PDF viewer
         } else {
             switch (event.key) {
-                case 'ArrowLeft': showPrevPage(); break;
-                case 'ArrowRight': showNextPage(); break;
-                case 'ArrowUp': case 'PageUp': showPrevPage(); break;
-                case 'ArrowDown': case 'PageDown': showNextPage(); break;
+                case 'ArrowLeft': goToPreviousPage(); break;
+                case 'ArrowRight': goToNextPage(); break;
+                case 'ArrowUp': case 'PageUp': goToPreviousPage(); break;
+                case 'ArrowDown': case 'PageDown': goToNextPage(); break;
                 case 'Home': pageNum = 1; queueRenderPage(pageNum); break;
                 case 'End': pageNum = pdfDoc.numPages; queueRenderPage(pageNum); break;
-                case 'Enter': case ' ': if (focusedElement !== 'input') showNextPage(); break;
+                case 'Enter': case ' ': if (focusedElement !== 'input') goToNextPage(); break;
                 case 'f': toggleFullScreen(); break;
                 case 'b': addBookmarkModal(); break;
                 default: break;
@@ -183,7 +183,7 @@ const toggleControls = () => {
     threeDashButton.style.zIndex = '1500';
 };
 
-const handleWheel = (event) => { debounce(() => { if (event.deltaY > 0) showNextPage(); else showPrevPage(); }, 100); };
+const handleWheel = (event) => { debounce(() => { if (event.deltaY > 0) goToNextPage(); else goToPreviousPage(); }, 100); };
 
 // Remove the duplicate definition
 // const handleMouseUpDown = (event) => { ... }; // REMOVE THIS
@@ -314,8 +314,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (element) element.addEventListener(event, handler);
     };
 
-    addEventListenerIfExists(prevPageBtn, 'click', showPrevPage);
-    addEventListenerIfExists(nextPageBtn, 'click', showNextPage);
+    addEventListenerIfExists(prevPageBtn, 'click', goToPreviousPage);
+    addEventListenerIfExists(nextPageBtn, 'click', goToNextPage);
     addEventListenerIfExists(goToPageBtn, 'click', () => {
         jumpToPage();
         if (pageInput) pageInput.value = '';
@@ -406,8 +406,8 @@ window.zoomIn = zoomIn;
 window.handleKeyDown = handleKeyDown;
 window.editBookmark = editBookmark;
 window.deleteBookmark = deleteBookmark;
-window.showPrevPage = showPrevPage;
-window.showNextPage = showNextPage;
+window.goToPreviousPage = goToPreviousPage;
+window.goToNextPage = goToNextPage;
 window.jumpToPage = jumpToPage;
 window.toggleFullScreen = toggleFullScreen;
 window.addBookmarkModal = addBookmarkModal;

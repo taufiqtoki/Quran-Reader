@@ -2,26 +2,161 @@ import { auth, syncBookmarks } from './auth.js';
 import { showToast } from './utils.js';
 import { addBookmark, updateLastRead, deleteBookmark as deleteFirestoreBookmark } from './firestoreManager.js';
 
+// Variable declarations
 const dbName = 'pdfCacheDB', storeName = 'pages';
 let db, pdfDoc = null, pageIsRendering = false, pageNumPending = null, scale = window.devicePixelRatio || 1;
 const canvas = document.getElementById('pdf-render'), ctx = canvas.getContext('2d');
 let renderTask = null, bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || {}, pageNum = localStorage.getItem('lastPage') ? parseInt(localStorage.getItem('lastPage'), 10) : 1;
 let autoSaveTimer;
 
-let totalPrefetchedPages = 0;
-let totalCachedPages = 0;
-let totalRenderedPages = 0;
+// Constants
+const MAX_CACHED_PAGES = 50;
+// const PAGE_CHANGE_DEBOUNCE = 300; // Duplicate declaration removed
+const PAGE_BUFFER_SIZE = 2; // Number of pages to buffer in each direction
 
-const MAX_CACHED_PAGES = 50; // Limit the number of cached pages
+// Add PageState enum before it's used
+const PageState = {
+    UNLOADED: 0,
+    LOADING: 1,
+    LOADED: 2,
+    RENDERED: 3,
+    ERROR: 4
+};
 
-let xDown = null, yDown = null; // Add these variables at the top of the file
-let touchLock = false;  // added flag to prevent double triggering
-let debounceTimeout; // Add this at the top with other variable declarations
+// Add this near the top with other state variables
+const loadQueue = {
+    HIGH: 'high',
+    MEDIUM: 'medium',
+    LOW: 'low',
+    queues: {
+        high: new Set(),
+        medium: new Set(),
+        low: new Set()
+    },
+    
+    add(page, priority = 'medium') {
+        this.queues[priority].add(page);
+        if (priority === this.HIGH) {
+            this.process();
+        }
+    },
+    
+    clear(priority = 'medium') {
+        this.queues[priority].clear();
+    },
+    
+    async process() {
+        // Process high priority first
+        for (const page of this.queues.high) {
+            await loadPageWithPriority(page, this.HIGH);
+            this.queues.high.delete(page);
+        }
+        
+        // Process medium priority in background
+        for (const page of this.queues.medium) {
+            loadPageWithPriority(page, this.MEDIUM);
+            this.queues.medium.delete(page);
+        }
+    }
+};
 
-// Add this state variable at the top
+// State management
 let isPdfReady = false;
+let isPageChanging = false;
+let pageChangeQueue = [];
+const PAGE_CHANGE_DEBOUNCE = 300;
 
-let pageChangeInProgress = false;
+const pageLoadStates = {
+    promises: new Map(),  // Track loading promises
+    cache: new Map(),     // Cache loaded pages
+    states: new Map()     // Track page states
+};
+
+let currentLoadingPromises = new Map(); // Initialize the map
+let pageCache = new Map();   // Initialize page cache
+let pageStates = new Map();  // Initialize page states
+
+// Navigation manager
+const pageNavigationManager = {
+    async changePage(newPage, options = {}) {
+        if (isPageChanging) {
+            if (options.force) {
+                pageChangeQueue = [];
+            } else {
+                pageChangeQueue.push(() => this.changePage(newPage, options));
+                return;
+            }
+        }
+
+        isPageChanging = true;
+        canvas.style.opacity = '0.3';
+        canvas.style.transition = 'opacity 0.2s ease';
+
+        try {
+            if (newPage < 1 || newPage > pdfDoc.numPages) return;
+            
+            pageNum = newPage;
+            await queueRenderPage(pageNum, true);
+            updateBookmarkList();
+            localStorage.setItem('lastPage', pageNum);
+            
+            document.getElementById('page-info').textContent = `Page ${pageNum} of ${pdfDoc.numPages}`;
+            document.getElementById('page-info-controls').textContent = `Page ${pageNum} of ${pdfDoc.numPages}`;
+            updatePageProgress(pageNum);
+            updateStarColor();
+
+            if (auth.currentUser) {
+                await updateLastRead(auth.currentUser.uid, pageNum);
+            }
+
+            canvas.style.opacity = '1';
+        } catch (error) {
+            console.error('Page change error:', error);
+            canvas.style.opacity = '1';
+        } finally {
+            isPageChanging = false;
+            if (pageChangeQueue.length > 0) {
+                const nextChange = pageChangeQueue.pop();
+                pageChangeQueue = [];
+                nextChange();
+            }
+        }
+    }
+};
+
+// Core navigation functions
+const goToNextPage = async () => {
+    if (!pdfDoc || !isPdfReady) return;
+    await pageNavigationManager.changePage(pageNum + 1);
+};
+
+const goToPreviousPage = async () => {
+    if (!pdfDoc || !isPdfReady) return;
+    await pageNavigationManager.changePage(pageNum - 1);
+};
+
+// Event handlers
+const handleWheel = (event) => {
+    if (!pdfDoc || isPageChanging) return;
+    if (!event.deltaY) return;
+    
+    clearTimeout(debounceTimeout);
+    debounceTimeout = setTimeout(() => {
+        if (event.deltaY > 0) {
+            goToNextPage();
+        } else {
+            goToPreviousPage();
+        }
+    }, PAGE_CHANGE_DEBOUNCE);
+};
+
+const handleMouseUpDown = (event) => {
+    if (event.button === 4) {
+        goToPreviousPage();
+    } else if (event.button === 5) {
+        goToNextPage();
+    }
+};
 
 const openDB = () => new Promise((resolve, reject) => {
     const request = indexedDB.open(dbName, 1);
@@ -327,54 +462,126 @@ const prefetchPages = (currentPage, numPagesToPrefetch = 2) => {
     }
 };
 
-const renderPage = (num, scale) => {
-    if (!pdfDoc) return;
-    if (renderTask) renderTask.cancel();
-    pageIsRendering = true;
+// Optimized page loading function
+const loadPageWithPriority = async (pageNum, priority) => {
+    if (currentLoadingPromises.has(pageNum)) {
+        return currentLoadingPromises.get(pageNum);
+    }
 
-    canvas.style.visibility = 'hidden'; // Hide the canvas until rendering is complete
-    pdfDoc.getPage(num).then((page) => {
+    const loadPromise = (async () => {
+        try {
+            if (pageCache.has(pageNum)) {
+                return pageCache.get(pageNum);
+            }
+
+            pageStates.set(pageNum, PageState.LOADING);
+            const page = await pdfDoc.getPage(pageNum);
+            const viewport = page.getViewport({ scale });
+            
+            // For high priority, render immediately
+            if (priority === 'high') {
+                await renderPageToCanvas(page, viewport);
+            }
+            
+            pageCache.set(pageNum, page);
+            pageStates.set(pageNum, PageState.LOADED);
+            return page;
+        } catch (error) {
+            pageStates.set(pageNum, PageState.ERROR);
+            throw error;
+        } finally {
+            currentLoadingPromises.delete(pageNum);
+        }
+    })();
+
+    currentLoadingPromises.set(pageNum, loadPromise);
+    return loadPromise;
+};
+
+// Add this function near the other UI update functions
+const updatePageInfo = (num) => {
+    const pageInfo = document.getElementById('page-info');
+    const pageInfoControls = document.getElementById('page-info-controls');
+    
+    if (pageInfo) {
+        pageInfo.textContent = `Page ${num} of ${pdfDoc.numPages}`;
+    }
+    if (pageInfoControls) {
+        pageInfoControls.textContent = `Page ${num} of ${pdfDoc.numPages}`;
+    }
+    updatePageProgress(num);
+};
+
+// Modify the existing renderPage function
+const renderPage = async (num, scale) => {
+    if (!pdfDoc) return;
+    
+    try {
+        // Show loading state immediately
+        canvas.style.opacity = '0.7';
+        pageIsRendering = true;
+
+        // Cancel any existing render
+        if (renderTask) {
+            renderTask.cancel();
+        }
+
+        // Load the page with high priority
+        const page = await loadPageWithPriority(num, 'high');
         const viewport = page.getViewport({ scale });
+        
+        // Set up canvas
         const outputScale = window.devicePixelRatio || 1;
         canvas.width = Math.floor(viewport.width * outputScale);
         canvas.height = Math.floor(viewport.height * outputScale);
-        canvas.style.width = '100%';
-        canvas.style.height = '100%';
-        ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas before rendering
-        const renderCtx = {
-            canvasContext: ctx,
-            viewport,
-            transform: [outputScale, 0, 0, outputScale, 0, 0]
-        };
-        renderTask = page.render(renderCtx);
-        renderTask.promise.then(() => {
-            pageIsRendering = false;
-            canvas.style.visibility = 'visible'; // Show the canvas after rendering is complete
-            if (pageNumPending !== null) {
-                renderPage(pageNumPending, scale);
-                pageNumPending = null;
-            }
-            cachePage(num, canvas.toDataURL());
-            totalRenderedPages++;
-            updatePageProgress(num);
-            prefetchPages(num, 2); // Prefetch the next 2 pages
-            document.getElementById('page-info').textContent = `Page ${num} of ${pdfDoc.numPages}`;
-            document.getElementById('page-info-controls').textContent = `Page ${num} of ${pdfDoc.numPages}`;
-            localStorage.setItem('lastPage', num); // Update the last read page in local storage
-            updateStarColor();
-        }).catch((error) => {
-            if (error.name === 'RenderingCancelledException') {
-                pageIsRendering = false;
-                if (pageNumPending !== null) {
-                    renderPage(pageNumPending, scale);
-                    pageNumPending = null;
-                }
-            }
-        });
-        document.getElementById('page-info').textContent = `Page ${num} of ${pdfDoc.numPages}`;
-        localStorage.setItem('lastPage', num); // Update the last read page in local storage
-        updateStarColor();
-    });
+        
+        // Render page
+        await renderPageToCanvas(page, viewport);
+        
+        // Queue next pages for loading
+        queueAdjacentPages(num);
+        
+        // Update UI
+        updatePageInfo(num);
+        canvas.style.opacity = '1';
+    } catch (error) {
+        console.error('Error rendering page:', error);
+        showToast('Error loading page');
+    } finally {
+        pageIsRendering = false;
+    }
+};
+
+// Add helper function for rendering to canvas
+const renderPageToCanvas = async (page, viewport) => {
+    const outputScale = window.devicePixelRatio || 1;
+    const renderContext = {
+        canvasContext: ctx,
+        viewport,
+        transform: [outputScale, 0, 0, outputScale, 0, 0]
+    };
+    
+    renderTask = page.render(renderContext);
+    return renderTask.promise;
+};
+
+// Add function to queue adjacent pages
+const queueAdjacentPages = (currentPage) => {
+    // Clear existing queue
+    loadQueue.clear(loadQueue.MEDIUM);
+    
+    // Queue next pages
+    for (let i = 1; i <= PAGE_BUFFER_SIZE; i++) {
+        const nextPage = currentPage + i;
+        const prevPage = currentPage - i;
+        
+        if (nextPage <= pdfDoc.numPages) {
+            loadQueue.add(nextPage, loadQueue.MEDIUM);
+        }
+        if (prevPage >= 1) {
+            loadQueue.add(prevPage, loadQueue.MEDIUM);
+        }
+    }
 };
 
 // Move this function definition before loadPDFWithRetry
@@ -508,32 +715,104 @@ const initializePdf = async (initialPage = null) => {
     }
 };
 
-// Add this before the DOMContentLoaded event listener
-const handleWheel = (event) => {
-    if (!pdfDoc || pageChangeInProgress) return;
-    if (!event.deltaY) return;
+const jumpToPage = async () => {
+    const pageInput = document.getElementById('page-input');
+    const targetPage = parseInt(pageInput.value, 10);
     
-    clearTimeout(debounceTimeout);
-    debounceTimeout = setTimeout(() => {
-        if (event.deltaY > 0) {
-            showNextPage();
-        } else {
-            showPrevPage();
-        }
-    }, 300); // Increase debounce time to prevent rapid page changes
+    if (!isNaN(targetPage) && targetPage >= 1 && targetPage <= pdfDoc.numPages) {
+        await pageNavigationManager.changePage(targetPage, { force: true });
+    }
+    
+    pageInput.value = '';
 };
 
-// Define handleMouseUpDown once, near the top with other function declarations
-const handleMouseUpDown = (event) => {
-    if (event.button === 4) {
-        showPrevPage();
-    } else if (event.button === 5) {
-        showNextPage();
+const toggleFullScreen = () => {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        }
+    }
+    setTimeout(() => renderPage(pageNum, scale), 100); // Re-render the page to adjust the canvas size after entering/exiting full-screen mode
+};
+
+const showNextPage = () => {
+    if (!pdfDoc || !isPdfReady || pageChangeInProgress) return;
+    if (pageNum >= pdfDoc.numPages) return;
+    
+    pageChangeInProgress = true;
+    pageNum++;
+    queueRenderPage(pageNum, true).finally(() => {
+        pageChangeInProgress = false;
+    });
+};
+
+const showPrevPage = () => {
+    if (!pdfDoc || !isPdfReady || pageChangeInProgress) return;
+    if (pageNum <= 1) return;
+    
+    pageChangeInProgress = true;
+    pageNum--;
+    queueRenderPage(pageNum, true).finally(() => {
+        pageChangeInProgress = false;
+    });
+};
+
+// Update zoomIn to handle initialization state better
+const zoomIn = () => {
+    if (!isPdfReady || !pdfDoc) {
+        // Queue zoom for when PDF is ready instead of warning
+        const checkAndZoom = () => {
+            if (isPdfReady && pdfDoc) {
+                scale += 0.25;
+                queueRenderPage(pageNum);
+            } else {
+                setTimeout(checkAndZoom, 500);
+            }
+        };
+        checkAndZoom();
+        return;
+    }
+    scale += 0.25;
+    queueRenderPage(pageNum);
+};
+
+const toggleBookmarks = () => {
+    const bookmarkList = document.getElementById('bookmark-list');
+    bookmarkList.classList.toggle('hidden');
+};
+
+const handleTouchStart = (evt) => {
+    const firstTouch = evt.touches[0];
+    xDown = firstTouch.clientX;
+    yDown = firstTouch.clientY;
+};
+
+// Modified handleTouchMove function with lock to avoid double page change
+const handleTouchMove = (evt) => {
+    if (!xDown || !yDown || touchLock) return;
+    touchLock = true;
+    
+    const xUp = evt.touches[0].clientX;
+    const yUp = evt.touches[0].clientY;
+    const xDiff = xDown - xUp;
+    const yDiff = yDown - yUp;
+    
+    setTimeout(() => { touchLock = false; }, PAGE_CHANGE_DEBOUNCE);
+    
+    // Clear touch points immediately
+    xDown = null;
+    yDown = null;
+    
+    if (Math.abs(xDiff) > Math.abs(yDiff)) {
+        if (xDiff > 50) { // Add threshold for better detection
+            goToNextPage();
+        } else if (xDiff < -50) {
+            goToPreviousPage();
+        }
     }
 };
-
-// Make it available globally only once
-window.handleMouseUpDown = handleMouseUpDown;
 
 document.addEventListener('DOMContentLoaded', () => {
     const prevPageBtn = document.getElementById('prev-page');
@@ -555,7 +834,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (nextPageBtn) {
         nextPageBtn.addEventListener('click', () => {
-            showNextPage();  // Changed from nested logic to direct call
+            goToNextPage();  // Changed from nested logic to direct call
         });
     }
 
@@ -645,119 +924,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Navigation buttons
     [prevPageBtn, prevPageBtnControl].forEach(btn => {
-        if (btn) btn.addEventListener('click', showPrevPage);
+        if (btn) btn.addEventListener('click', goToPreviousPage);
     });
 
     [nextPageBtn, nextPageBtnControl].forEach(btn => {
-        if (btn) btn.addEventListener('click', showNextPage);
+        if (btn) btn.addEventListener('click', goToNextPage);
     });
 
     // Keyboard navigation
     document.addEventListener('keydown', (event) => {
         if (event.key === 'ArrowRight' || event.key === 'PageDown') {
-            showNextPage();
+            goToNextPage();
         } else if (event.key === 'ArrowLeft' || event.key === 'PageUp') {
-            showPrevPage();
+            goToPreviousPage();
         }
     });
 });
 
-const jumpToPage = () => {
-    const pageInput = document.getElementById('page-input');
-    const page = parseInt(pageInput.value, 10);
-    if (isNaN(page) || page < 1 || page > pdfDoc.numPages) {
-        return; // Silently fail without logging an error
-    }
-    pageNum = page;
-    queueRenderPage(pageNum);
-    pageInput.value = ''; // Clear the textbox
-};
-
-const toggleFullScreen = () => {
-    if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen();
-    } else {
-        if (document.exitFullscreen) {
-            document.exitFullscreen();
-        }
-    }
-    setTimeout(() => renderPage(pageNum, scale), 100); // Re-render the page to adjust the canvas size after entering/exiting full-screen mode
-};
-
-const showNextPage = () => {
-    if (!pdfDoc || !isPdfReady || pageChangeInProgress) return;
-    if (pageNum >= pdfDoc.numPages) return;
-    
-    pageChangeInProgress = true;
-    pageNum++;
-    queueRenderPage(pageNum, true).finally(() => {
-        pageChangeInProgress = false;
-    });
-};
-
-const showPrevPage = () => {
-    if (!pdfDoc || !isPdfReady || pageChangeInProgress) return;
-    if (pageNum <= 1) return;
-    
-    pageChangeInProgress = true;
-    pageNum--;
-    queueRenderPage(pageNum, true).finally(() => {
-        pageChangeInProgress = false;
-    });
-};
-
-// Update zoomIn to handle initialization state better
-const zoomIn = () => {
-    if (!isPdfReady || !pdfDoc) {
-        // Queue zoom for when PDF is ready instead of warning
-        const checkAndZoom = () => {
-            if (isPdfReady && pdfDoc) {
-                scale += 0.25;
-                queueRenderPage(pageNum);
-            } else {
-                setTimeout(checkAndZoom, 500);
-            }
-        };
-        checkAndZoom();
-        return;
-    }
-    scale += 0.25;
-    queueRenderPage(pageNum);
-};
-
-const toggleBookmarks = () => {
-    const bookmarkList = document.getElementById('bookmark-list');
-    bookmarkList.classList.toggle('hidden');
-};
-
-const handleTouchStart = (evt) => {
-    const firstTouch = evt.touches[0];
-    xDown = firstTouch.clientX;
-    yDown = firstTouch.clientY;
-};
-
-// Modified handleTouchMove function with lock to avoid double page change
-const handleTouchMove = (evt) => {
-    if (!xDown || !yDown || touchLock) return;
-    touchLock = true;
-    const xUp = evt.touches[0].clientX, yUp = evt.touches[0].clientY;
-    const xDiff = xDown - xUp, yDiff = yDown - yUp;
-    if (Math.abs(xDiff) > Math.abs(yDiff)) {
-        // horizontal swipe: change page
-        if (xDiff > 0) showNextPage();
-        else showPrevPage();
-    } else {
-        // vertical swipe: change page based on swipe direction
-        if (yDiff > 0) showNextPage();
-        else showPrevPage();
-    }
-    // Reset touch positions and lock after a short delay
-    xDown = null; 
-    yDown = null;
-    setTimeout(() => { touchLock = false; }, 300);
-};
-
-// Ensure all necessary functions are exported
+// Single export statement
 export { 
     openDB, 
     setPdfDoc, 
@@ -775,17 +959,24 @@ export {
     updateStarColor, 
     jumpToPage, 
     toggleFullScreen, 
-    showNextPage, 
-    showPrevPage, 
     zoomIn, 
     toggleBookmarks,
-    handleModalKeyDown, // Add this line
-    handleWheel, // Add this line
-    handleMouseUpDown, // Add this line
-    setPageNum, // Add this line
-    initializePdf // Add this line
+    handleModalKeyDown,
+    handleWheel,
+    handleMouseUpDown,
+    setPageNum,
+    initializePdf,
+    goToNextPage,
+    goToPreviousPage
 };
 
-// Attach functions to the global scope for inline event handlers:
-window.deleteBookmark = deleteBookmark;
-window.handleMouseUpDown = handleMouseUpDown; // Add this line
+// Single window object assignment
+Object.assign(window, {
+    deleteBookmark,
+    handleMouseUpDown,
+    goToNextPage,
+    goToPreviousPage,
+    jumpToBookmark,
+    editBookmark,
+    confirmDeleteBookmark
+});
