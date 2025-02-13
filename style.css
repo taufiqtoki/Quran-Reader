@@ -482,7 +482,6 @@ body, html { user-select: none; height: 100%; margin: 0; }
 
 /* ...rest of existing code... */
 
-// ...existing code...
 
 /* User section responsive styles */
 .user-section-container {
@@ -587,10 +586,8 @@ button, input {
 }
 
 // ...rest of existing code...
-
 // ...existing styles...
 
-.spinner {
     width: 40px;
     height: 40px;
     margin: 20px auto;
@@ -608,7 +605,6 @@ button, input {
 // ...rest of existing styles...
 
 // ...existing code...
-
 /* Height-based button adjustments */
 @media screen and (max-height: 500px) {
     #prev-page-btn, 
@@ -684,4 +680,26 @@ button, input {
 }
 
 // ...rest of existing code...
+
+/* Update modal z-index values */
+#signin-modal,
+#signup-modal,
+#bookmark-modal,
+#confirm-delete-modal {
+    z-index: 9999 !important;
+}
+
+/* Ensure modals are always on top in landscape mode */
+@media (orientation: landscape) {
+    #signin-modal,
+    #signup-modal {
+        z-index: 10000 !important; /* Higher than all other elements */
+    }
+
+    .modal-backdrop {
+        z-index: 9999;
+    }
+}
+
+/* ... rest of existing code ... */
 

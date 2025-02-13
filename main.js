@@ -117,6 +117,15 @@ const debounce = (func, delay) => {
 };
 
 const handleKeyDown = (event) => {
+    // Don't handle keyboard shortcuts if target is an input
+    if (
+        event.target.tagName === 'INPUT' ||
+        event.target.tagName === 'TEXTAREA' ||
+        event.target.isContentEditable
+    ) {
+        return;
+    }
+
     // Check if any modal is open
     const signupModalOpen = !document.getElementById('signup-modal').classList.contains('hidden');
     const signinModalOpen = !document.getElementById('signin-modal').classList.contains('hidden');

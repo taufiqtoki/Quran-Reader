@@ -9,7 +9,7 @@ import {
     sendPasswordResetEmail
 } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js';
 import { doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js';
-import { ref, onValue } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js';
+import { ref, onValue, getDatabase } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js';
 import { showToast } from './utils.js';
 import { getBookmarks, getLastRead } from './firestoreManager.js';
 import { setPageNum, initializePdf } from './pdfManager.js';
