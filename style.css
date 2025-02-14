@@ -316,6 +316,7 @@ body, html { user-select: none; height: 100%; margin: 0; }
   overflow: hidden;
   overscroll-behavior: contain;
   touch-action: none;
+  transition: width 0.3s ease;
 }
 
 #control-section .three-dash-button {
@@ -702,4 +703,40 @@ button, input {
 }
 
 /* ... rest of existing code ... */
+
+// ...existing code...
+
+.pdf-viewer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    overscroll-behavior: contain;
+    touch-action: none;
+    transition: width 0.3s ease;
+}
+
+#pdf-render {
+    max-width: 100%;
+    max-height: 100%;
+    transition: opacity 0.3s ease;
+    will-change: transform, opacity;
+}
+
+/* Add smooth transitions for orientation changes */
+@media (orientation: portrait) {
+    .pdf-viewer {
+        width: 100% !important;
+        transition: width 0.3s ease;
+    }
+}
+
+@media (orientation: landscape) {
+    .pdf-viewer {
+        width: 40% !important;
+        transition: width 0.3s ease;
+    }
+}
+
+// ...existing code...
 

@@ -6,7 +6,6 @@ const dbName = 'pdfCacheDB', storeName = 'pages';
 let db, pdfDoc = null, pageIsRendering = false, pageNumPending = null, scale = window.devicePixelRatio || 1;
 const canvas = document.getElementById('pdf-render'), ctx = canvas.getContext('2d');
 let renderTask = null, bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || {}, pageNum = localStorage.getItem('lastPage') ? parseInt(localStorage.getItem('lastPage'), 10) : 1;
-let autoSaveTimer;
 let debounceTimeout;
 window.isManualBookmarkInteraction = false;
 
@@ -325,20 +324,8 @@ const jumpToBookmark = async (page) => {
     await pageNavigationManager.changePage(parseInt(page, 10), { force: true });
 };
 
-const startAutoSaveTimer = () => {
-    if (isManualBookmarkInteraction) return;
-    
-    clearTimeout(autoSaveTimer);
-    autoSaveTimer = setTimeout(() => {
-        if (!isManualBookmarkInteraction) {
-            saveBookmark();
-        }
-    }, 10000);
-};
-
 const addBookmarkModal = () => {
     isManualBookmarkInteraction = true;
-    clearTimeout(autoSaveTimer);
     
     document.getElementById('modal-page-number').value = pageNum;
     document.getElementById('modal-bookmark-name').value = bookmarks[pageNum] ? bookmarks[pageNum].name : 'Continue';
@@ -349,13 +336,8 @@ const addBookmarkModal = () => {
     document.addEventListener('click', handleModalClick, true);
     
     const saveButton = document.getElementById('save-bookmark');
-    if (!saveButton && !isManualBookmarkInteraction) {
-        startAutoSaveTimer();
-    }
-
     const nameInput = document.getElementById('modal-bookmark-name');
     nameInput.addEventListener('input', () => {
-        clearTimeout(autoSaveTimer);
         isManualBookmarkInteraction = true;
     });
 };
@@ -369,36 +351,31 @@ const isExactDuplicate = (page, name) => {
 };
 
 const saveBookmark = async () => {
-    clearTimeout(autoSaveTimer);
-    isManualBookmarkInteraction = false;
-    
     const page = parseInt(document.getElementById('modal-page-number').value, 10);
     const name = document.getElementById('modal-bookmark-name').value.trim();
-    if (!page || !name) return;
-
-    if (isExactDuplicate(page, name)) {
-        showToast('This exact bookmark already exists');
+    
+    if (!page || !name) {
+        showToast('Please enter both page number and name');
         return;
     }
 
     try {
+        // Create or update the bookmark in memory
         window.bookmarks[page] = { name };
+        
+        // Save to localStorage
         localStorage.setItem('bookmarks', JSON.stringify(window.bookmarks));
+        
+        // If user is signed in, sync with Firestore
+        if (auth.currentUser) {
+            const bookmarkId = await addBookmark(auth.currentUser.uid, name, page);
+            window.bookmarks[page].id = bookmarkId;
+            localStorage.setItem('bookmarks', JSON.stringify(window.bookmarks));
+        }
+
         updateBookmarkList();
         closeModal();
         showToast(`Bookmark '${name}' saved at page ${page}`);
-
-        if (auth.currentUser) {
-            backgroundQueue.add(async () => {
-                try {
-                    const bookmarkId = await addBookmark(auth.currentUser.uid, name, page);
-                    window.bookmarks[page].id = bookmarkId;
-                    localStorage.setItem('bookmarks', JSON.stringify(window.bookmarks));
-                } catch (error) {
-                    console.error('Background bookmark sync error:', error);
-                }
-            });
-        }
     } catch (error) {
         console.error('Error saving bookmark:', error);
         showToast('Error saving bookmark');
@@ -420,7 +397,6 @@ const editBookmark = (page) => {
         updateBookmarkList();
         closeModal();
         showToast('Bookmark edited');
-        clearTimeout(autoSaveTimer);
     };
     document.getElementById('bookmark-modal').onkeydown = (event) => {
         if (event.key === 'Enter') {
@@ -429,7 +405,6 @@ const editBookmark = (page) => {
             saveButton.click();
         }
     };
-    startAutoSaveTimer();
 };
 
 const confirmDeleteBookmark = (page) => {
@@ -479,7 +454,6 @@ const deleteBookmark = async (page) => {
 };
 
 const closeModal = () => {
-    clearTimeout(autoSaveTimer);
     isManualBookmarkInteraction = false;
     
     const modal = document.getElementById('bookmark-modal');
@@ -625,11 +599,31 @@ const renderPage = async (num, scale) => {
         const page = await loadPageWithPriority(num, 'high');
         const viewport = page.getViewport({ scale });
         
-        const outputScale = window.devicePixelRatio || 1;
-        canvas.width = Math.floor(viewport.width * outputScale);
-        canvas.height = Math.floor(viewport.height * outputScale);
+        // Get container dimensions
+        const container = canvas.parentElement;
+        const containerStyle = window.getComputedStyle(container);
+        const containerWidth = parseInt(containerStyle.width);
+        const containerHeight = parseInt(containerStyle.height);
         
-        await renderPageToCanvas(page, viewport);
+        // Calculate scale to fit container while maintaining aspect ratio
+        const containerAspect = containerWidth / containerHeight;
+        const pageAspect = viewport.width / viewport.height;
+        
+        let renderScale = scale;
+        if (containerAspect > pageAspect) {
+            renderScale = (containerHeight / viewport.height) * scale;
+        } else {
+            renderScale = (containerWidth / viewport.width) * scale;
+        }
+        
+        const adjustedViewport = page.getViewport({ scale: renderScale });
+        
+        // Set canvas dimensions
+        const outputScale = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(adjustedViewport.width * outputScale);
+        canvas.height = Math.floor(adjustedViewport.height * outputScale);
+        
+        await renderPageToCanvas(page, adjustedViewport);
         
         queueAdjacentPages(num);
         
@@ -777,6 +771,29 @@ const setPageNum = (num) => {
     return pageNum;
 };
 
+const handleOrientationChange = () => {
+    return new Promise((resolve) => {
+        setTimeout(async () => {
+            if (!pdfDoc) return resolve();
+            
+            // Reset canvas and scale
+            canvas.style.opacity = '0';
+            canvas.width = 0;
+            canvas.height = 0;
+            
+            // Wait for layout to settle
+            await new Promise(r => setTimeout(r, 50));
+            
+            // Force re-render with current scale
+            await renderPage(pageNum, scale);
+            canvas.style.opacity = '1';
+            
+            resolve();
+        }, 100); // Small delay to let the layout update
+    });
+};
+
+// Update the initializePdf function
 const initializePdf = async (initialPage = null) => {
     try {
         await openDB();
@@ -790,6 +807,11 @@ const initializePdf = async (initialPage = null) => {
         if (isPdfReady && pdfDoc) {
             await renderPage(pageNum, scale);
             zoomIn();
+            
+            // Add orientation change listener
+            window.addEventListener('orientationchange', async () => {
+                await handleOrientationChange();
+            });
         }
     } catch (error) {
         setTimeout(() => initializePdf(initialPage), 2000);
