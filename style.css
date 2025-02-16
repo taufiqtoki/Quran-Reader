@@ -1,4 +1,10 @@
-#pdf-container { width: 80%; margin: 20px auto; border: 1px solid #ccc; overflow: auto; }
+/* Base styles */
+#pdf-container { 
+    width: 80%; 
+    margin: 20px auto; 
+    border: 1px solid #ccc; 
+    overflow: auto; 
+}
 #bookmarks { width: 80%; margin: 20px auto; border: 1px solid #ccc; padding: 10px; }
 #pdf-render { width: 100%; height: 100%; object-fit: contain; aspect-ratio: 1 / 1.5; background: white; transition: opacity 0.2s ease; will-change: opacity; }
 input[type="number"] { cursor: text; }
@@ -17,7 +23,7 @@ body, html { user-select: none; height: 100%; margin: 0; }
   top: 20px;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 1100; /* Ensure the toasts are above the bookmarks sidebar */
+  z-index: 1300 !important; /* Ensure the toasts are above the bookmarks sidebar */
 }
 .toast {
   opacity: 0;
@@ -55,6 +61,9 @@ body, html { user-select: none; height: 100%; margin: 0; }
 
 #page-progress {
   height: 100%; /* Ensure the progress bar has a height */
+  transform: translateX(0);
+  will-change: transform;
+  transition: transform 0.3s ease;
 }
 
 /* Bottom buttons styles */
@@ -140,14 +149,23 @@ body, html { user-select: none; height: 100%; margin: 0; }
 /* Portrait mode styles */
 @media (orientation: portrait) {
   #bookmark-section, #control-section {
-    position: absolute;
+    position: fixed;  /* Change from absolute to fixed */
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(255, 255, 255, 0.8); /* 20% transparency */
-    z-index: 1000; /* Ensure it comes above the PDF viewer */
-    transition: transform 0.5s ease-in-out;
+    background: rgba(255, 255, 255, 0.95);
+    z-index: 1000;
+    transform: translateX(100%);  /* Start offscreen */
+    transition: transform 0.3s ease-in-out;
+  }
+
+  #control-section.show {
+    transform: translateX(0);  /* Slide in */
+  }
+
+  #control-section.hide {
+    transform: translateX(100%);  /* Slide out */
   }
 
   .pdf-viewer {
@@ -177,7 +195,7 @@ body, html { user-select: none; height: 100%; margin: 0; }
   }
 
   #page-info {
-    width: 80%;
+    width: 70%;
     height: 3%;
     background: white;
     text-align: center;
@@ -317,6 +335,9 @@ body, html { user-select: none; height: 100%; margin: 0; }
   overscroll-behavior: contain;
   touch-action: none;
   transition: width 0.3s ease;
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
 }
 
 #control-section .three-dash-button {
@@ -337,7 +358,7 @@ body, html { user-select: none; height: 100%; margin: 0; }
 
 #bookmark-modal,
 #confirm-delete-modal {
-  z-index: 9999 !important;
+  z-index: 1100 !important;
 }
 
 /* Enhanced Spinner Styles */
@@ -481,8 +502,7 @@ body, html { user-select: none; height: 100%; margin: 0; }
   }
 }
 
-/* ...rest of existing code... */
-
+/* ...rest of existing code ... */
 
 /* User section responsive styles */
 .user-section-container {
@@ -575,8 +595,6 @@ button, input {
     margin-bottom: 1.5rem;  /* Add space below progress bar */
 }
 
-// ...existing code...
-
 /* Ensure online status fits nicely */
 #online-status {
     font-size: 0.7rem;
@@ -586,26 +604,6 @@ button, input {
     border-radius: 9999px;
 }
 
-// ...rest of existing code...
-// ...existing styles...
-
-    width: 40px;
-    height: 40px;
-    margin: 20px auto;
-    border: 3px solid #f3f3f3;
-    border-top: 3px solid #3498db;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-// ...rest of existing styles...
-
-// ...existing code...
 /* Height-based button adjustments */
 @media screen and (max-height: 500px) {
     #prev-page-btn, 
@@ -669,74 +667,482 @@ button, input {
     }
 }
 
-// ...existing code...
-
-#pdf-render {
-    transition: opacity 0.2s ease;
-    will-change: opacity;
+/* Control section spacing adjustments */
+#control-section {
+  padding: 0.75rem !important;
 }
 
-.page-transition {
-    opacity: 0.3;
+#control-section > div {
+  margin-bottom: 0.5rem !important;
 }
 
-// ...rest of existing code...
+#control-section .space-y-2 {
+  gap: 0.5rem !important;
+}
 
-/* Update modal z-index values */
-#signin-modal,
-#signup-modal,
+#control-section button,
+#control-section input {
+  margin-bottom: 0.25rem !important;
+  height: 2.5rem !important;
+  min-height: 2.5rem !important;
+}
+
+/* User section compact style */
+.user-section-container {
+  margin-bottom: 0.5rem !important;
+}
+
+#user-view, #guest-view {
+  padding: 0.5rem !important;
+}
+
+/* Progress bar and info compact style */
+.w-full.bg-gray-200.rounded-full {
+  margin-bottom: 0.5rem !important;
+}
+
+#page-info-controls {
+  margin: 0.25rem 0 !important;
+  font-size: 0.875rem !important;
+}
+
+/* Portrait mode specific adjustments */
+@media (orientation: portrait) {
+  #control-section {
+    padding: 0.5rem !important;
+    gap: 0.25rem !important;
+  }
+
+  #control-section > div.space-y-2 {
+    gap: 0.25rem !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .user-section-container {
+    margin: 0.25rem 0 !important;
+  }
+}
+
+/* Landscape mode specific adjustments */
+@media (orientation: landscape) {
+  #control-section > div.space-y-2 {
+    gap: 0.25rem !important;
+  }
+
+  .user-section-container {
+    margin: 0.5rem 0 !important;
+  }
+}
+
+/* Control section height adjustments for small screens */
+@media screen and (max-height: 500px) {
+    #control-section {
+        overflow-y: auto;
+        max-height: 100vh;
+    }
+
+    #control-section button,
+    #control-section input,
+    #control-section .user-section-container,
+    #page-input,
+    #go-to-page,
+    #prev-page-btn,
+    #next-page-btn,
+    #fullscreen,
+    #google-signin-btn {
+        max-height: 6vh !important;
+        min-height: 24px !important;
+        height: 6vh !important;
+        padding-top: 0.125rem !important;
+        padding-bottom: 0.125rem !important;
+        font-size: 0.875rem !important;
+    }
+
+    /* Adjust icon sizes */
+    #control-section button i {
+        font-size: 0.875rem !important;
+    }
+
+    /* Make user section more compact */
+    #user-view, #guest-view {
+        padding: 0.25rem !important;
+    }
+
+    /* Compact progress bar */
+    .w-full.bg-gray-200.rounded-full {
+        height: 4px !important;
+        margin: 0.25rem 0 !important;
+    }
+
+    #page-info-controls {
+        font-size: 0.75rem !important;
+        margin: 0.25rem 0 !important;
+        line-height: 1 !important;
+    }
+}
+
+/* Make all control elements match Google button size */
+#control-section button,
+#control-section input,
+#page-input,
+#go-to-page,
+#prev-page-btn,
+#next-page-btn,
+#fullscreen,
+#google-signin-btn {
+    height: 2.5rem !important;
+    min-height: 2.5rem !important;
+    max-height: 2.5rem !important;
+    padding: 0.5rem !important;
+    font-size: 0.875rem !important;
+    line-height: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* Adjust icon sizes */
+#control-section button i {
+    font-size: 0.875rem !important;
+}
+
+/* Ensure proper spacing */
+#control-section .space-y-2 > * + * {
+    margin-top: 0.25rem !important;
+}
+
+/* Progress bar height adjustment */
+.w-full.bg-gray-200.rounded-full {
+    height: 0.5rem !important;
+}
+
+/* Reset any absolute positioning or transforms for user section in portrait mode */
+@media (orientation: portrait) {
+    .user-section-container {
+        position: relative !important;
+        transform: none !important;
+        bottom: auto !important;
+        right: auto !important;
+        left: auto !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        margin: 0.5rem 0 !important;
+        padding: 0 !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    #control-section {
+        padding: 0.75rem !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    .user-section-container.expanded {
+        transform: none !important;
+    }
+
+    #user-view, #guest-view {
+        padding: 0.5rem !important;
+        margin: 0 !important;
+        max-width: none !important;
+    }
+}
+
+/* Add height adjustments for small viewport heights */
+@media screen and (max-height: 500px) {
+    #control-section button,
+    #control-section input,
+    #page-input,
+    #go-to-page,
+    #prev-page-btn,
+    #next-page-btn,
+    #fullscreen,
+    #google-signin-btn,
+    .user-section-container button {
+        height: 6vh !important;
+        min-height: 24px !important;
+        max-height: 6vh !important;
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+        font-size: 0.75rem !important;
+    }
+
+    /* Adjust icon sizes */
+    #control-section button i {
+        font-size: 0.75rem !important;
+    }
+
+    /* Reduce spacing between controls */
+    #control-section .space-y-2 > * + * {
+        margin-top: 0.25rem !important;
+    }
+
+    /* Make progress bar more compact */
+    .w-full.bg-gray-200.rounded-full {
+        margin: 0.25rem 0 !important;
+    }
+}
+
+/* Z-index hierarchy */
+:root {
+    /* Base layer */
+    --z-background: 1;
+    --z-pdf-viewer: 100;
+    
+    /* UI controls layer */
+    --z-nav-buttons: 200;
+    --z-controls: 300;
+    --z-sidebar: 300;
+    --z-floating-buttons: 400;
+    
+    /* Overlay layer */
+    --z-toast: 1000;
+    --z-modal-backdrop: 1100;
+    --z-modal: 1200;
+    --z-auth-modal: 1300;
+}
+
+/* Base elements */
+.pdf-viewer {
+    z-index: var(--z-pdf-viewer);
+}
+
+/* Navigation controls */
+.nav-button {
+    z-index: var(--z-nav-buttons);
+}
+
+/* Sidebars and controls */
+#control-section,
+#bookmark-section {
+    z-index: var(--z-controls);
+}
+
+/* Floating buttons */
+#three-dash-button,
+.floating-star,
+#add-bookmark-modal-top {
+    z-index: var(--z-floating-buttons);
+}
+
+/* Overlays */
+.toast-container {
+    z-index: var(--z-toast);
+}
+
+/* Modal backdrops */
+.bg-gray-800.bg-opacity-50 {
+    z-index: var(--z-modal-backdrop);
+}
+
+/* Regular modals */
 #bookmark-modal,
 #confirm-delete-modal {
-    z-index: 9999 !important;
+    z-index: var(--z-modal);
+}
+
+/* Authentication modals (highest priority) */
+#signin-modal,
+#signup-modal {
+    z-index: var(--z-auth-modal);
+}
+
+/* Portrait mode adjustments */
+@media (orientation: portrait) {
+    #bookmark-section,
+    #control-section {
+        z-index: var(--z-sidebar);
+    }
+    
+    #three-dash-button {
+        z-index: var(--z-floating-buttons);
+    }
+    
+    .pdf-viewer {
+        z-index: var(--z-pdf-viewer);
+    }
+}
+
+/* ...existing code... */
+
+#three-dash-button,
+#three-dash-button-control {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: white;
+    border-radius: 50%;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    transition: all 0.3s ease;
+}
+
+#three-dash-button:hover,
+#three-dash-button-control:hover {
+    transform: scale(1.1);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+}
+
+#three-dash-button:active,
+#three-dash-button-control:active {
+    transform: scale(0.95);
+}
+
+#three-dash-button img,
+#three-dash-button-control img {
+    transition: all 0.3s ease;
+}
+
+#three-dash-button:hover img,
+#three-dash-button-control:hover img {
+    filter: invert(33%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(30%) contrast(100%) !important;
+    transform: scale(1.1);
+}
+
+#three-dash-button:active img,
+#three-dash-button-control:active img {
+    transform: scale(0.95);
+}
+
+/* Portrait mode styles */
+@media (orientation: portrait) {
+    #control-section {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(255, 255, 255, 0.95);
+        z-index: var(--z-sidebar);
+        transform: translateX(100%);
+        transition: transform 0.3s ease-in-out;
+    }
+
+    #control-section.show {
+        transform: translateX(0);
+    }
+
+    #control-section.hide {
+        transform: translateX(100%);
+    }
+}
+
+/* Portrait mode - Control section transitions */
+@media (orientation: portrait) {
+  #control-section {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.98);
+    z-index: 1000;
+    transform: translateX(100%);
+    transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  #control-section.show {
+    transform: translateX(0);
+    opacity: 1;
+    visibility: visible;
+  }
+
+  #control-section.hide {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* Remove control section three-dash button styles */
+#control-section .three-dash-button,
+#three-dash-button-control {
+    display: none !important;
+}
+
+/* Show three-dash button only in portrait mode */
+@media (orientation: portrait) {
+  #three-dash-button {
+    display: block;
+  }
+}
+
+/* Hide three-dash button in landscape mode */
+@media (orientation: landscape) {
+  #three-dash-button {
+    display: none;
+  }
+}
+
+/* Update bookmark star button styles */
+#add-bookmark-modal-top,
+#add-bookmark-modal {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    z-index: var(--z-floating-buttons);
+    opacity: 0.7;
+}
+
+#add-bookmark-modal-top:hover,
+#add-bookmark-modal:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+#add-bookmark-modal-top:active,
+#add-bookmark-modal:active {
+    transform: scale(0.95);
+}
+
+/* Ensure stars are visible in both light and dark modes */
+#add-bookmark-modal-top,
+#add-bookmark-modal {
+    color: #000;
+    text-shadow: 0 0 1px rgba(255, 255, 255, 0.5);
+}
+
+/* When page is bookmarked */
+#add-bookmark-modal-top.bookmarked,
+#add-bookmark-modal.bookmarked {
+    color: gold;
+    text-shadow: 0 0 2px rgba(0, 0, 0, 0.3);
 }
 
 /* Ensure modals are always on top in landscape mode */
 @media (orientation: landscape) {
     #signin-modal,
     #signup-modal {
-        z-index: 10000 !important; /* Higher than all other elements */
+        z-index: var(--z-auth-modal) !important;
     }
 
     .modal-backdrop {
-        z-index: 9999;
+        z-index: var(--z-modal-backdrop);
     }
 }
 
-/* ... rest of existing code ... */
-
-// ...existing code...
-
-.pdf-viewer {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    overflow: hidden;
-    overscroll-behavior: contain;
-    touch-action: none;
-    transition: width 0.3s ease;
+/* Optimize progress bar animation */
+#page-progress {
+    transform: translateX(0);
+    will-change: transform;
+    transition: transform 0.3s ease;
 }
 
-#pdf-render {
-    max-width: 100%;
-    max-height: 100%;
-    transition: opacity 0.3s ease;
-    will-change: transform, opacity;
+/* Use hardware acceleration for animations */
+.pdf-viewer, 
+.nav-button,
+#page-progress,
+.slide-in-left,
+.slide-in-right {
+    transform: translateZ(0);
+    will-change: transform;
+    backface-visibility: hidden;
 }
-
-/* Add smooth transitions for orientation changes */
-@media (orientation: portrait) {
-    .pdf-viewer {
-        width: 100% !important;
-        transition: width 0.3s ease;
-    }
-}
-
-@media (orientation: landscape) {
-    .pdf-viewer {
-        width: 40% !important;
-        transition: width 0.3s ease;
-    }
-}
-
-// ...existing code...
 

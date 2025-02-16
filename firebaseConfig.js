@@ -1,5 +1,5 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js';
-import { getAuth } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js';
+import { getAuth, GoogleAuthProvider } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js';
 import { getFirestore } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js';
 import { getDatabase } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js';
 
@@ -21,4 +21,18 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const rtdb = getDatabase(app);
 
-export { app, auth, db, rtdb };
+// Update Google provider configuration
+const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('profile');
+googleProvider.addScope('email');
+
+// Remove custom parameters from initial setup
+// They will be set dynamically based on device type
+
+export { 
+    app, 
+    auth, 
+    db, 
+    rtdb,
+    googleProvider // Export the provider
+}

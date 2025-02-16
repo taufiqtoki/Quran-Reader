@@ -1,18 +1,27 @@
-import { auth, db, rtdb } from './firebaseConfig.js';
+import { 
+    auth, 
+    db, 
+    rtdb,
+    googleProvider 
+} from './firebaseConfig.js';
 import { 
     signInWithPopup, 
+    signInWithRedirect,
+    getRedirectResult,
     GoogleAuthProvider, 
     signOut,
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
     updateProfile,
-    sendPasswordResetEmail
+    sendPasswordResetEmail,
+    onAuthStateChanged
 } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-auth.js';
 import { doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore.js';
 import { ref, onValue, getDatabase } from 'https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js';
 import { showToast } from './utils.js';
 import { getBookmarks, getLastRead } from './firestoreManager.js';
 import { setPageNum, initializePdf } from './pdfManager.js';
+import { setupModalFocus } from './modalUtils.js';
 
 // Remove these lines since we're importing them from firebaseConfig.js
 // const app = window.firebaseApp || initializeApp(firebaseConfig);
@@ -172,24 +181,108 @@ async function signInWithEmail(email, password) {
     }
 }
 
-// Add Google sign-in handler with better error handling
+// Add device detection helper
+const getDeviceType = () => {
+    const userAgent = navigator.userAgent;
+    const isEmulator = /Chrome\/\d+/.test(userAgent) && 
+                      /Mobile\b/.test(userAgent) && 
+                      window.matchMedia('(max-device-width: 900px)').matches;
+    const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(userAgent);
+    
+    console.log('Device Detection:', {
+        userAgent,
+        isEmulator,
+        isMobileDevice,
+        width: window.innerWidth,
+        pixelRatio: window.devicePixelRatio
+    });
+
+    return {
+        isEmulator,
+        isMobileDevice,
+        usePopup: !isMobileDevice || isEmulator
+    };
+};
+
+// Update the Google Sign-in handler
 const handleGoogleSignIn = async () => {
     try {
-        const provider = new GoogleAuthProvider();
-        provider.setCustomParameters({
-            prompt: 'select_account'
-        });
-        const result = await signInWithPopup(auth, provider);
-        showToast('Signed in successfully with Google');
-        updateUIForUser(result.user); // Ensure UI is updated after sign-in
-        return result.user;
-    } catch (error) {
-        console.error("Google sign in error:", error);
-        // Don't show error toast for user-initiated cancellation
-        if (error.code !== 'auth/popup-closed-by-user') {
-            showToast(error.message || 'Failed to sign in with Google');
+        const device = getDeviceType();
+        console.log('Device type:', device);
+
+        // Clear any existing auth states
+        localStorage.removeItem('authInProgress');
+        localStorage.removeItem('redirectStartTime');
+
+        // Set new auth state
+        localStorage.setItem('authInProgress', 'true');
+        localStorage.setItem('redirectStartTime', Date.now().toString());
+
+        // Always use popup for emulator, redirect for real mobile devices
+        if (device.usePopup) {
+            if (window.googleSignInInProgress) {
+                console.warn('Google sign-in already in progress');
+                return;
+            }
+            
+            window.googleSignInInProgress = true;
+            
+            try {
+                // Configure provider for popup
+                googleProvider.setCustomParameters({
+                    prompt: 'select_account',
+                    display: 'popup'
+                });
+
+                const result = await signInWithPopup(auth, googleProvider);
+                if (result?.user) {
+                    console.log('Popup sign-in successful');
+                    updateUIForUser(result.user);
+                    showToast('Signed in successfully with Google');
+                }
+            } catch (popupError) {
+                handleSignInError(popupError);
+            }
+        } else {
+            // Configure provider for redirect
+            googleProvider.setCustomParameters({
+                prompt: 'select_account',
+                display: 'touch',
+                redirect_uri: window.location.origin
+            });
+
+            await signInWithRedirect(auth, googleProvider);
         }
-        throw error;
+    } catch (error) {
+        handleSignInError(error);
+    } finally {
+        window.googleSignInInProgress = false;
+    }
+};
+
+// Add error handling function
+const handleSignInError = (error) => {
+    localStorage.removeItem('authInProgress');
+    localStorage.removeItem('redirectStartTime');
+    window.googleSignInInProgress = false;
+
+    console.error("Google sign in error:", error);
+    
+    switch (error.code) {
+        case 'auth/cancelled-popup-request':
+            showToast('Sign-in was cancelled');
+            break;
+        case 'auth/popup-blocked':
+            showToast('Please allow popups and try again');
+            break;
+        case 'auth/popup-closed-by-user':
+            showToast('Sign-in window was closed');
+            break;
+        case 'auth/internal-error':
+            showToast('Please try signing in again');
+            break;
+        default:
+            showToast(error.message || 'Failed to sign in with Google');
     }
 };
 
@@ -289,11 +382,72 @@ auth.onAuthStateChanged(async (user) => {
     }
 });
 
+// Update the redirect result handler
+const handleRedirectResult = async () => {
+    try {
+        console.log('Checking redirect result...');
+        const result = await getRedirectResult(auth);
+        
+        localStorage.removeItem('authInProgress');
+        localStorage.removeItem('redirectStartTime');
+        
+        if (result?.user) {
+            console.log('Redirect sign-in successful');
+            updateUIForUser(result.user);
+            showToast('Signed in successfully with Google');
+            return true;
+        } else {
+            console.log('No redirect result found');
+            return false;
+        }
+    } catch (error) {
+        console.error('Redirect result error:', error);
+        localStorage.removeItem('authInProgress');
+        localStorage.removeItem('redirectStartTime');
+        showToast('Sign-in failed: ' + (error.message || 'Unknown error'));
+        return false;
+    }
+};
+
+// Update DOMContentLoaded handler
+document.addEventListener('DOMContentLoaded', async () => {
+    if (localStorage.getItem('authInProgress')) {
+        const success = await handleRedirectResult();
+        if (!success) {
+            console.log('Redirect sign-in failed or was cancelled');
+        }
+    }
+});
+
+// Add a periodic check for stuck redirects
+setInterval(() => {
+    const redirectStartTime = localStorage.getItem('redirectStartTime');
+    if (redirectStartTime) {
+        const timeElapsed = Date.now() - parseInt(redirectStartTime);
+        if (timeElapsed > 120000) { // 2 minutes
+            // Clear stuck redirect state
+            localStorage.removeItem('authInProgress');
+            localStorage.removeItem('redirectStartTime');
+            showToast('Sign-in attempt timed out. Please try again.');
+        }
+    }
+}, 30000); // Check every 30 seconds
+
+// Add redirect state cleanup
+window.addEventListener('unload', () => {
+    if (localStorage.getItem('authInProgress')) {
+        localStorage.removeItem('authInProgress');
+    }
+});
+
 // Event listeners with null checks
+
+// Remove this block since we're handling it in main.js
+/*
 if (signInButton) {
     signInButton.addEventListener('click', async () => {
         try {
-            const result = await signInWithPopup(auth, provider);
+            await signInWithPopup(auth, new GoogleAuthProvider());
             showToast('Signed in successfully');
         } catch (error) {
             console.error("Error signing in: ", error);
@@ -301,6 +455,7 @@ if (signInButton) {
         }
     });
 }
+*/
 
 if (signOutButton) {
     signOutButton.addEventListener('click', async () => {

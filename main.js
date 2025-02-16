@@ -20,10 +20,13 @@ import {
     setPageNum,
     initializePdf,
     goToNextPage,
-    goToPreviousPage
+    goToPreviousPage,
+    goToFirstPage,
+    goToLastPage
 } from './pdfManager.js';
 import { signUpWithEmail, signInWithEmail, showSigninModal, showSignupModal, closeSigninModal, closeSignupModal, handleSignin, handleSignup, handleGoogleSignIn, handlePasswordReset } from './auth.js';
 import { showToast } from './utils.js';
+import { setupModalFocus } from './modalUtils.js';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
@@ -117,9 +120,7 @@ const debounce = (func, delay) => {
 };
 
 const handleKeyDown = (event) => {
-    // Don't handle keyboard shortcuts if target is an input
-    if (
-        event.target.tagName === 'INPUT' ||
+    if (event.target.tagName === 'INPUT' ||
         event.target.tagName === 'TEXTAREA' ||
         event.target.isContentEditable
     ) {
@@ -127,22 +128,64 @@ const handleKeyDown = (event) => {
     }
 
     // Check if any modal is open
-    const signupModalOpen = !document.getElementById('signup-modal').classList.contains('hidden');
-    const signinModalOpen = !document.getElementById('signin-modal').classList.contains('hidden');
-    const bookmarkModalOpen = !document.getElementById('bookmark-modal').classList.contains('hidden');
+    const modalsOpen = ['signup-modal', 'signin-modal', 'bookmark-modal']
+        .some(id => !document.getElementById(id).classList.contains('hidden'));
     
-    // If any modal is open, only handle Escape key and prevent other shortcuts
-    if (signupModalOpen || signinModalOpen || bookmarkModalOpen) {
+    if (modalsOpen) {
         if (event.key === 'Escape') {
-            if (signupModalOpen) closeSignupModal();
-            if (signinModalOpen) closeSigninModal();
-            if (bookmarkModalOpen) closeModal();
+            // ... existing modal escape handling ...
         }
-        event.stopPropagation();
         return;
     }
 
-    // Original keyboard shortcut handling
+    // Use immediate execution for navigation keys
+    switch (event.key) {
+        case 'ArrowUp':
+            event.preventDefault();
+            goToPreviousPage();
+            break;
+        case 'ArrowDown':
+            event.preventDefault();
+            goToNextPage();
+            break;
+        case 'ArrowLeft':
+        case 'p':
+        case 'P':
+            event.preventDefault();
+            goToPreviousPage();
+            break;
+        case 'ArrowRight':
+        case 'PageDown':
+        case ' ':  // Space key
+        case 'Enter':
+        case 'n':
+        case 'N':
+            event.preventDefault();
+            if (focusedElement !== 'input') {
+                goToNextPage();
+            }
+            break;
+        case 'Home':
+            event.preventDefault();
+            goToFirstPage();
+            break;
+        case 'End':
+            event.preventDefault();
+            goToLastPage();
+            break;
+        case 'f':
+        case 'F':
+            event.preventDefault();
+            toggleFullScreen();
+            break;
+        case 'b':
+        case 'B':
+            event.preventDefault();
+            addBookmarkModal();
+            break;
+    }
+
+    // Use debounce only for non-navigation shortcuts
     debounce(() => {
         if (event.ctrlKey && event.key === 'b') {
             addBookmarkModal();
@@ -152,27 +195,8 @@ const handleKeyDown = (event) => {
             toggleFullScreen();
         } else if (event.key === '*') {
             addBookmarkModal();
-        } else if (event.key === '-' && event.repeat && event.getModifierState('Shift')) {
-            const controlSection = document.getElementById('control-section');
-            controlSection.classList.toggle('hidden');
-            controlSection.style.backgroundColor = controlSection.classList.contains('hidden') ? '' : 'rgba(0, 0, 0, 0.8)';
-            controlSection.style.position = 'absolute';
-            controlSection.style.zIndex = '10'; // Ensure it appears over the PDF viewer
-        } else {
-            switch (event.key) {
-                case 'ArrowLeft': goToPreviousPage(); break;
-                case 'ArrowRight': goToNextPage(); break;
-                case 'ArrowUp': case 'PageUp': goToPreviousPage(); break;
-                case 'ArrowDown': case 'PageDown': goToNextPage(); break;
-                case 'Home': pageNum = 1; queueRenderPage(pageNum); break;
-                case 'End': pageNum = pdfDoc.numPages; queueRenderPage(pageNum); break;
-                case 'Enter': case ' ': if (focusedElement !== 'input') goToNextPage(); break;
-                case 'f': toggleFullScreen(); break;
-                case 'b': addBookmarkModal(); break;
-                default: break;
-            }
         }
-    }, 200); // Adjust the delay as needed
+    }, 200);
 };
 
 // Make handleKeyDown globally available
@@ -180,17 +204,60 @@ window.handleKeyDown = handleKeyDown;
 
 const toggleControls = () => {
     const controlSection = document.getElementById('control-section');
-    controlSection.classList.toggle('hidden');
-    controlSection.classList.toggle('slide-in-right');
-    controlSection.style.backgroundColor = controlSection.classList.contains('hidden') ? '' : 'rgba(255, 255, 255, 0.8)'; // Same color and transparency as bookmarks sidebar
-    controlSection.style.position = 'absolute';
-    controlSection.style.zIndex = '1000'; // Ensure it appears over the PDF viewer
-
-    // Ensure the three-dash button remains clickable
     const threeDashButton = document.getElementById('three-dash-button');
-    threeDashButton.style.position = 'fixed';
-    threeDashButton.style.zIndex = '1500';
+    
+    if (!controlSection) return;
+    
+    if (window.matchMedia("(orientation: portrait)").matches) {
+        if (controlSection.classList.contains('show')) {
+            // Hide with animation
+            controlSection.classList.add('hide');
+            controlSection.classList.remove('show');
+            
+            if (threeDashButton) {
+                threeDashButton.style.pointerEvents = 'auto';
+                threeDashButton.style.opacity = '1';
+            }
+            
+            setTimeout(() => {
+                controlSection.style.visibility = 'hidden';
+            }, 300);
+        } else {
+            // Show with animation
+            controlSection.style.visibility = 'visible';
+            
+            if (threeDashButton) {
+                threeDashButton.style.pointerEvents = 'none';
+                threeDashButton.style.opacity = '0.5';
+            }
+            
+            void controlSection.offsetWidth;
+            controlSection.classList.remove('hide');
+            controlSection.classList.add('show');
+        }
+    } else {
+        controlSection.classList.toggle('hidden');
+    }
 };
+
+document.addEventListener('click', (event) => {
+    const controlSection = document.getElementById('control-section');
+    const threeDashButton = document.getElementById('three-dash-button');
+    
+    // Add null checks
+    if (!controlSection || !threeDashButton) return;
+    
+    // If in portrait mode and control section is visible
+    if (window.matchMedia("(orientation: portrait)").matches && 
+        controlSection.classList.contains('show')) {
+        
+        // Check if click is outside control section and not on the toggle button
+        if (!controlSection.contains(event.target) && 
+            !threeDashButton.contains(event.target)) {
+            toggleControls();
+        }
+    }
+});
 
 const handleWheel = (event) => { debounce(() => { if (event.deltaY > 0) goToNextPage(); else goToPreviousPage(); }, 100); };
 
@@ -311,22 +378,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const fullscreenBtn = document.getElementById('fullscreen');
     const pageInput = document.getElementById('page-input');
     const pdfViewer = document.querySelector('.pdf-viewer');
-    const showBookmarksBtn = document.getElementById('show-bookmarks');
     const showControlsBtn = document.getElementById('show-controls');
     const backButton = document.getElementById('back-button');
-    const toggleBookmarksSidebarBottomBtn = document.getElementById('toggle-bookmarks-sidebar-bottom');
     const threeDashButton = document.getElementById('three-dash-button');
-    const threeDashButtonControl = document.getElementById('three-dash-button-control');
-    const emailSignupBtn = document.getElementById('email-signup-btn');
+    const signInBtn = document.getElementById('signin-btn');
+    const emailSignupBtn = document.getElementById('email-signup-btn'); // Single declaration here
 
     const addEventListenerIfExists = (element, event, handler) => {
         if (element) element.addEventListener(event, handler);
     };
 
     addEventListenerIfExists(prevPageBtn, 'click', goToPreviousPage);
-    addEventListenerIfExists(nextPageBtn, 'click', goToNextPage);
+    addEventListenerIfExists(nextPageBtn, 'click', (e) => {
+        e.stopPropagation();
+        goToNextPage();
+    });
     addEventListenerIfExists(goToPageBtn, 'click', () => {
         jumpToPage();
+        toggleControls();
         if (pageInput) pageInput.value = '';
     });
     addEventListenerIfExists(addBookmarkModalBtn, 'click', addBookmarkModal);
@@ -334,20 +403,25 @@ document.addEventListener('DOMContentLoaded', () => {
     addEventListenerIfExists(saveBookmarkBtn, 'click', saveBookmark);
     addEventListenerIfExists(cancelModalBtn, 'click', closeModal);
     addEventListenerIfExists(zoomInBtn, 'click', zoomIn);
-    addEventListenerIfExists(fullscreenBtn, 'click', toggleFullScreen);
-    addEventListenerIfExists(pageInput, 'keydown', handlePageInputKeyDown);
+    addEventListenerIfExists(fullscreenBtn, 'click', () => {
+        toggleFullScreen();
+        toggleControls();
+    });
+    addEventListenerIfExists(pageInput, 'keydown', (event) => {
+        handlePageInputKeyDown(event);
+        if (event.key === 'Enter') {
+            toggleControls();
+        }
+    });
     addEventListenerIfExists(pageInput, 'focus', () => setFocus('input'));
     addEventListenerIfExists(pageInput, 'blur', () => clearFocus('input'));
-    addEventListenerIfExists(showBookmarksBtn, 'click', toggleBookmarks);
     addEventListenerIfExists(showControlsBtn, 'click', () => {
         document.getElementById('control-section').classList.toggle('hidden');  
     });
     addEventListenerIfExists(backButton, 'click', () => {
         window.history.back();
     });
-    addEventListenerIfExists(toggleBookmarksSidebarBottomBtn, 'click', toggleBookmarks);
     addEventListenerIfExists(threeDashButton, 'click', toggleControls);
-    addEventListenerIfExists(threeDashButtonControl, 'click', toggleControls);
     addEventListenerIfExists(emailSignupBtn, 'click', showSignupModal);
 
     if (pdfViewer) {
@@ -406,6 +480,172 @@ document.addEventListener('DOMContentLoaded', () => {
             userSection.classList.remove('expanded');
         }
     });
+
+    // Add new modal event listeners
+    const modals = ['signin-modal', 'signup-modal', 'bookmark-modal'];
+    modals.forEach(modalId => {
+        const modal = document.getElementById(modalId);
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    if (modalId === 'signin-modal') closeSigninModal();
+                    else if (modalId === 'signup-modal') closeSignupModal();
+                    else if (modalId === 'bookmark-modal') closeModal();
+                }
+            });
+        }
+    });
+
+    // Add modal focus setup to imported functions
+    const originalShowSignupModal = showSignupModal;
+    const originalShowSigninModal = showSigninModal;
+    const originalAddBookmarkModal = addBookmarkModal;
+
+    window.showSignupModal = () => {
+        originalShowSignupModal();
+        setupModalFocus('signup-modal', 'signup-submit', 'signup-close');
+    };
+
+    window.showSigninModal = () => {
+        originalShowSigninModal();
+        setupModalFocus('signin-modal', 'signin-submit', 'signin-close');
+    };
+
+    window.addBookmarkModal = () => {
+        originalAddBookmarkModal();
+        setupModalFocus('bookmark-modal', 'save-bookmark', 'cancel-modal');
+    };
+
+    // Add click handler for empty space in control section
+    const controlSection = document.getElementById('control-section');
+    if (controlSection) {
+        controlSection.addEventListener('click', (e) => {
+            // Check if click was directly on the control section (empty space)
+            if (e.target === controlSection) {
+                toggleControls();
+            }
+        });
+
+        // Prevent clicks on control section content from closing it
+        const controlContent = controlSection.querySelector('.space-y-2');
+        if (controlContent) {
+            controlContent.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        }
+    }
+
+    // Update sign in button event listener
+    if (signInBtn) {
+        signInBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showSigninModal();
+        });
+    }
+
+    if (emailSignupBtn) {
+        emailSignupBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            showSignupModal();
+        });
+    }
+
+    // Add event listener for sign-up button
+    const signUpBtn = document.getElementById('signup-btn');
+    if (signUpBtn) {
+        signUpBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showSignupModal();
+        });
+    }
+
+    // Add event listener for sign-up submit button
+    const signupSubmitBtn = document.getElementById('signup-submit');
+    if (signupSubmitBtn) {
+        signupSubmitBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleSignup(e);
+        });
+    }
+
+    // Update Google sign-in button handler
+    const googleSignInBtn = document.getElementById('google-signin-btn');
+    if (googleSignInBtn) {
+        googleSignInBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Disable the button immediately
+            googleSignInBtn.disabled = true;
+            googleSignInBtn.style.opacity = '0.7';
+            
+            try {
+                await handleGoogleSignIn();
+            } catch (error) {
+                console.error('Google sign in error:', error);
+            } finally {
+                // Re-enable the button after a delay
+                setTimeout(() => {
+                    googleSignInBtn.disabled = false;
+                    googleSignInBtn.style.opacity = '1';
+                }, 2000);
+            }
+        });
+    }
+
+    // Update bookmark star buttons with proper event listeners
+    const bookmarkStarButtons = [
+        document.getElementById('add-bookmark-modal-top'),
+        document.getElementById('add-bookmark-modal')
+    ];
+
+    bookmarkStarButtons.forEach(button => {
+        if (button) {
+            button.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                addBookmarkModal();
+                updateStarColor(); // Update star color after opening modal
+            });
+        }
+    });
+
+    // Update star color on initial load
+    updateStarColor();
+
+    // Also update star color whenever bookmarks change
+    window.addEventListener('bookmarksUpdated', () => {
+        updateStarColor();
+    });
+
+    // Fix bookmark sidebar toggle buttons
+    const showBookmarksBtn = document.getElementById('show-bookmarks');
+    const toggleBookmarksSidebarBottomBtn = document.getElementById('toggle-bookmarks-sidebar-bottom');
+
+    const handleBookmarkToggle = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const bookmarkSection = document.getElementById('bookmark-section');
+        if (bookmarkSection) {
+            if (bookmarkSection.classList.contains('hidden')) {
+                bookmarkSection.classList.remove('hidden');
+                bookmarkSection.classList.add('slide-in-left');
+            } else {
+                bookmarkSection.classList.add('hidden');
+                bookmarkSection.classList.remove('slide-in-left');
+            }
+            updateBookmarkList(); // Refresh bookmarks when showing
+        }
+    };
+
+    // Update event listeners for both bookmark toggle buttons
+    if (showBookmarksBtn) {
+        showBookmarksBtn.addEventListener('click', handleBookmarkToggle);
+    }
+    if (toggleBookmarksSidebarBottomBtn) {
+        toggleBookmarksSidebarBottomBtn.addEventListener('click', handleBookmarkToggle);
+    }
 });
 
 window.jumpToBookmark = jumpToBookmark;
@@ -439,3 +679,6 @@ window.handleGoogleSignIn = handleGoogleSignIn;
 window.handlePasswordReset = handlePasswordReset;
 window.handleModalKeyDown = handleModalKeyDown;
 window.handleMouseUpDown = handleMouseUpDown;
+window.toggleControls = toggleControls;
+window.goToFirstPage = goToFirstPage;
+window.goToLastPage = goToLastPage;

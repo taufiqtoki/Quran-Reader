@@ -47,6 +47,7 @@
   <script type="module" src="./utils.js"></script>
   <script type="module" src="./firestoreManager.js"></script>
   <script type="module" src="./auth.js"></script>
+  <script type="module" src="./modalUtils.js"></script>
 
   <!-- Add autocomplete attributes to password inputs -->
   <script>
@@ -148,94 +149,104 @@
       <button id="show-bookmarks" class="floating-star">
         <img src="./assets/star.svg" width="48" height="48" alt="Star Button" style="filter: invert(48%) sepia(100%) saturate(1000%) hue-rotate(1deg) brightness(100%) contrast(100%);">
       </button>
-      <button id="three-dash-button" class="fixed bottom-5 right-5 hidden">
-        <img src="./assets/three-dash.svg" width="48" height="48" alt="Three Dash Button" style="filter: invert(33%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(50%) contrast(100%);">
-      </button>
       <button id="add-bookmark-modal-top" class="fixed text-2xl top-5 left-5">
         ★
+      </button>
+      <button id="three-dash-button" class="fixed bottom-5 right-5">
+        <img src="./assets/three-dash.svg" width="48" height="48" alt="Menu Button">
       </button>
       <div id="page-info" class="text-lg fixed bottom-5 p-4 text-gray-700 hidden" style="background: white;"></div>
     </main>
 
     <!-- Right: Controls -->
-    <aside id="control-section" class="bg-gray-100 p-4 shadow-md hidden">
+    <aside id="control-section" class="bg-gray-100 shadow-md hidden">
+      <!-- Title section - reduced margin -->
       <div class="text-center mb-2">
-        <div class="flex items-center justify-center gap-2">
-          <img src="./assets/quran-icon.png" alt="Quran Icon" class="w-8 h-8">
-          <h1 class="text-2xl font-bold">القرآن المجيد</h1>
+        <div class="flex items-center justify-center gap-1">
+          <img src="./assets/quran-icon.png" alt="Quran Icon" class="w-6 h-6">
+          <h1 class="text-xl font-bold">القرآن المجيد</h1>
         </div>
-        <p class="text-gray-600">The Glorious Qur'an</p>
+        <p class="text-gray-600 text-sm">The Glorious Qur'an</p>
       </div>
-      <div class="space-y-2">
-        <button id="prev-page-btn" class="bg-blue-500 text-white px-4 rounded w-full flex items-center justify-center">
-          <i class="fas fa-arrow-left mr-2"></i> Previous Page
-        </button>
-        <button id="next-page-btn" class="bg-blue-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
-          <i class="fas fa-arrow-right mr-2"></i> Next Page
-        </button>
-        <button id="zoom-in" class="bg-purple-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
-          <i class="fas fa-search-plus mr-2"></i> Crisp Page
-        </button>
-        <button id="fullscreen" class="bg-yellow-500 text-white px-4 py-2 rounded w-full flex items-center justify-center">
-          <i class="fas fa-expand mr-2"></i> Full Screen
-        </button>
-        <div class="flex w-full items-center justify-center">   
-          <input type="number" id="page-input" placeholder="Page #" class="left-0 w-full p-4 ps-10 text-sm text-gray-1100 border border-gray-500 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" onkeydown="handlePageInputKeyDown(event)" required />
-          <button type="button" id="go-to-page" class="right-2 mr-2 text-center items-center justify-center text-white absolute bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-4 dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800" onclick="jumpToPage()">Go</button>
-        </div>
-        <div class="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 items-center justify-center text-center mb-6">
-          <div id="page-progress" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
-          <span id="page-info-controls" class="text-lg text-black-700 block mb-8"></span>
-        </div>
-        <button id="three-dash-button-control" class="three-dash-button">
-          <img src="./assets/three-dash.svg" width="48" height="48" alt="Three Dash Button" style="filter: invert(33%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(50%) contrast(100%);">
-        </button>
-        
-        <!-- User Section -->
-        <div class="user-section-container">
-          <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-lg">
-            <!-- Guest View - Simplified -->
-            <div id="guest-view" class="space-y-2">
-              <h2 class="text-xl font-bold text-center text-gray-800 mb-2">
-                <i class="fas fa-user-circle mr-2"></i>أهلاً وسهلاً
-              </h2>
-              <div class="grid grid-cols-2 gap-1">
-                <button onclick="showSigninModal()" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-2 py-2 rounded-lg flex items-center justify-center text-sm">
-                  <i class="fas fa-sign-in-alt mr-1"></i> Sign In
-                </button>
-                <button onclick="showSignupModal()" class="bg-gradient-to-r from-green-600 to-green-700 text-white px-2 py-2 rounded-lg flex items-center justify-center text-sm">
-                  <i class="fas fa-user-plus mr-1"></i> Sign Up
-                </button>
-              </div>
-              <button id="google-signin-btn" class="w-full bg-gradient-to-r from-red-600 to-red-700 text-white px-2 py-2 rounded-lg flex items-center justify-center text-sm">
-                <i class="fab fa-google mr-1"></i> Continue with Google
+
+      <!-- User section - reduced margin -->
+      <div class="user-section-container">
+        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg shadow-lg">
+          <!-- Guest View -->
+          <div id="guest-view" class="space-y-2">
+            <h2 class="text-xl font-bold text-center text-gray-800 mb-2">
+              <i class="fas fa-user-circle mr-2"></i>أهلاً وسهلاً
+            </h2>
+            <div class="grid grid-cols-2 gap-1">
+              <button id="signin-btn" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-2 py-2 rounded-lg flex items-center justify-center text-sm">
+                <i class="fas fa-sign-in-alt mr-1"></i> Sign In
+              </button>
+              <button id="signup-btn" class="bg-gradient-to-r from-green-600 to-green-700 text-white px-2 py-2 rounded-lg flex items-center justify-center text-sm">
+                <i class="fas fa-user-plus mr-1"></i> Sign Up
               </button>
             </div>
-
-            <!-- User View - Simplified -->
-            <div id="user-view" class="hidden space-y-2">
-              <div class="flex items-center space-x-2">
-                <div id="user-avatar" class="rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-white shadow-lg">
+            <button id="google-signin-btn" class="w-full bg-gradient-to-r from-red-600 to-red-700 text-white px-2 py-2 rounded-lg flex items-center justify-center text-sm">
+              <i class="fab fa-google mr-1"></i> Continue with Google
+            </button>
+          </div>
+          <!-- User View -->
+          <div id="user-view" class="hidden space-y-2">
+            <div class="flex items-center space-x-2">
+              <div id="user-avatar" class="rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 flex items-center justify-center text-white shadow-lg">
+              </div>
+              <div class="flex-grow min-w-0">
+                <div class="flex items-center justify-between">
+                  <h3 id="username-display" class="text-sm font-bold text-gray-800 truncate"></h3>
+                  <button id="mini-signout-btn" class="text-sm text-gray-500 hover:text-red-500">
+                    <i class="fas fa-sign-out-alt"></i>
+                  </button>
                 </div>
-                <div class="flex-grow min-w-0">
-                  <div class="flex items-center justify-between">
-                    <h3 id="username-display" class="text-sm font-bold text-gray-800 truncate"></h3>
-                    <button id="mini-signout-btn" class="text-sm text-gray-500 hover:text-red-500">
-                      <i class="fas fa-sign-out-alt"></i>
-                    </button>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <p id="email-display" class="text-xs text-gray-600 truncate"></p>
-                    <span id="online-status" class="flex items-center text-xs ml-2">
-                      <span class="w-1.5 h-1.5 bg-green-500 rounded-full mr-1 animate-pulse"></span>
-                      <span class="text-gray-600">Online</span>
-                    </span>
-                  </div>
+                <div class="flex items-center justify-between">
+                  <p id="email-display" class="text-xs text-gray-600 truncate"></p>
+                  <span id="online-status" class="flex items-center text-xs ml-2">
+                    <span class="w-1.5 h-1.5 bg-green-500 rounded-full mr-1 animate-pulse"></span>
+                    <span class="text-gray-600">Online</span>
+                  </span>
                 </div>
               </div>
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- Navigation controls -->
+      <div class="space-y-2 mx-2">
+        <button id="prev-page-btn" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 rounded w-full flex items-center justify-center hover:from-blue-700 hover:to-blue-800">
+          <i class="fas fa-arrow-left mr-2"></i> Previous Page
+        </button>
+        <button id="next-page-btn" class="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-2 rounded w-full flex items-center justify-center hover:from-blue-700 hover:to-blue-800">
+          <i class="fas fa-arrow-right mr-2"></i> Next Page
+        </button>
+        <button id="fullscreen" class="bg-gradient-to-r from-indigo-600 to-indigo-700 text-white px-4 py-2 rounded w-full flex items-center justify-center hover:from-indigo-700 hover:to-indigo-800">
+          <i class="fas fa-expand mr-2"></i> Full Screen
+        </button>
+      </div>
+
+      <!-- Page jump control - Fixed layout -->
+      <div class="relative mx-2">
+        <input type="number" 
+               id="page-input" 
+               placeholder="Page #" 
+               class="w-full p-4 text-center text-sm text-gray-1100 border border-gray-400 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500" 
+               required />
+        <button type="button" 
+                id="go-to-page" 
+                class="absolute inset-y-0 right-0 text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 font-medium rounded-r-lg text-sm px-6 flex items-center justify-center">
+          Go
+        </button>
+      </div>
+
+      <!-- Progress bar and page info - with horizontal margins -->
+      <div class="w-full px-2">
+        <div class="bg-gray-200 rounded-full h-2 my-1">
+          <div id="page-progress" class="bg-blue-600 h-2.5 rounded-full" style="width: 0%"></div>
+        </div>
+        <span id="page-info-controls" class="text-2xl font-bold text-center text-black-700 block mt-2"></span>
       </div>
     </aside>
     
@@ -245,10 +256,8 @@
   <div id="bookmark-modal" tabindex="-1" inert class="fixed inset-0 z-50 flex items-center justify-center hidden overflow-y-auto overflow-x-hidden bg-gray-800 bg-opacity-50" onkeydown="handleModalKeyDown(event)">
     <div class="relative w-full max-w-md p-4 h-full md:h-auto">
       <div class="relative bg-white rounded-lg shadow dark:bg-gray-700">
-        <button type="button" class="absolute top-3 right-2.5 text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center" onclick="closeModal()">
-          <svg aria-hidden="true" class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-            <path d="M10 20a1 1 0 0 1-1.414-1.414L11.414 10l-4.828-4.828A1 1 0 0 1 7.586 3.172L12 7.586l4.828-4.828A1 1 0 0 1 18.414 5.172L14 9.586l4.828 4.828A1 1 0 0 1 17.414 16.828L12 11.414l-4.828 4.828A1 1 0 0 1 10 20z"/>
-          </svg>
+        <button type="button" class="absolute top-3 right-2.5 text-gray-400 hover:bg-gray-200 hover:text-gray-900 rounded-lg text-xl font-bold p-1.5 ml-auto" onclick="closeModal()">
+          X
           <span class="sr-only">Close modal</span>
         </button>
         <div class="px-6 py-6 lg:px-8">
@@ -296,8 +305,11 @@
   <div id="signup-modal" tabindex="-1" inert class="fixed inset-0 z-50 flex items-center justify-center hidden overflow-y-auto overflow-x-hidden bg-gray-800 bg-opacity-50">
     <div class="relative w-full max-w-md p-4">
       <div class="relative bg-white rounded-lg shadow">
-        <button type="button" class="absolute top-3 right-2.5 text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5" onclick="closeSignupModal()">
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"></path></svg>
+        <button type="button" 
+                id="signup-close" 
+                class="absolute top-3 right-2.5 text-gray-400 hover:bg-gray-200 hover:text-gray-900 rounded-lg text-xl font-bold p-1.5" 
+                onclick="closeSignupModal()">
+          X
         </button>
         <div class="px-6 py-6 lg:px-8">
           <h3 class="mb-4 text-xl font-medium text-gray-900">Create Account</h3>
@@ -314,7 +326,11 @@
               <label for="password" class="block mb-2 text-sm font-medium text-gray-900">Password</label>
               <input type="password" id="signup-password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
             </div>
-            <button type="submit" class="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Create Account</button>
+            <button type="submit" 
+                    id="signup-submit" 
+                    class="w-full text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
+              Create Account
+            </button>
           </form>
         </div>
       </div>
@@ -325,8 +341,11 @@
   <div id="signin-modal" tabindex="-1" inert class="fixed inset-0 z-50 flex items-center justify-center hidden overflow-y-auto overflow-x-hidden bg-gray-800 bg-opacity-50">
     <div class="relative w-full max-w-md p-4">
       <div class="relative bg-white rounded-lg shadow">
-        <button type="button" class="absolute top-3 right-2.5 text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5" onclick="closeSigninModal()">
-          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"></path></svg>
+        <button type="button" 
+                id="signin-close" 
+                class="absolute top-3 right-2.5 text-gray-400 hover:bg-gray-200 hover:text-gray-900 rounded-lg text-xl font-bold p-1.5" 
+                onclick="closeSigninModal()">
+          X
         </button>
         <div class="px-6 py-6 lg:px-8">
           <h3 class="mb-4 text-xl font-medium text-gray-900">Sign In</h3>
@@ -340,7 +359,11 @@
               <input type="password" id="signin-password" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5" required>
             </div>
             <div class="flex justify-between items-center">
-              <button type="submit" class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">Sign In</button>
+              <button type="submit" 
+                      id="signin-submit" 
+                      class="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm px-5 py-2.5 text-center">
+                Sign In
+              </button>
               <button type="button" onclick="handlePasswordReset(document.getElementById('signin-email').value)" class="text-sm text-blue-600 hover:underline">
                 Forgot Password?
               </button>
